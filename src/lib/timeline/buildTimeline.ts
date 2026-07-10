@@ -35,17 +35,11 @@ export function buildTimeline(project: NewsProject): Timeline {
   const draft: Array<Pick<TimelineScene, "kind" | "durationInFrames" | "data">> = [];
 
   const storyScenes = project.storyScenes ?? [];
-  const firstStory = storyScenes[0];
-  const lastStory = storyScenes[storyScenes.length - 1];
 
   if (sc.includeIntro) {
-    // Intro belongs to the FIRST scene: it carries the first scene's background +
-    // content so the opener flows straight into scene 1.
-    draft.push({
-      kind: "intro",
-      durationInFrames: secToFrames(sc.introSeconds, fps),
-      data: firstStory ? { storyScene: firstStory } : undefined,
-    });
+    // Intro is its OWN separate scene (plain branded opener) — it does not carry
+    // any story scene's background/content.
+    draft.push({ kind: "intro", durationInFrames: secToFrames(sc.introSeconds, fps) });
   }
 
   if (storyScenes.length > 0) {
@@ -72,13 +66,8 @@ export function buildTimeline(project: NewsProject): Timeline {
   }
 
   if (sc.includeOutro) {
-    // Outro belongs to the LAST scene: it carries the last scene's background so
-    // the closer flows out of the final scene.
-    draft.push({
-      kind: "outro",
-      durationInFrames: secToFrames(sc.outroSeconds, fps),
-      data: lastStory ? { storyScene: lastStory } : undefined,
-    });
+    // Outro is its OWN separate scene (plain branded closer).
+    draft.push({ kind: "outro", durationInFrames: secToFrames(sc.outroSeconds, fps) });
   }
 
   // Remotion requires every scene (Sequence) to be at least as long as an adjacent
