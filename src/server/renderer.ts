@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { bundle } from "@remotion/bundler";
 import { selectComposition, renderMedia, ensureBrowser, makeCancelSignal } from "@remotion/renderer";
 import type { NewsProject } from "@/types/project";
+import { getRenderScale } from "@/types/project";
 import { NEWS_COMPOSITION_ID } from "@/remotion/constants";
 import type { RenderJob } from "./renderTypes";
 
@@ -77,6 +78,9 @@ export async function renderProject(job: RenderJob, project: NewsProject): Promi
     outputLocation,
     inputProps: { project },
     cancelSignal,
+    // Composition is in the 1080p design space; scale up to the chosen resolution
+    // (e.g. 2× → 4K). Layout stays identical, output is native high-res + crisp.
+    scale: getRenderScale(project.settings.resolution),
     onProgress: ({ progress, renderedFrames, stitchStage }) => {
       job.progress = progress;
       job.renderedFrames = renderedFrames;

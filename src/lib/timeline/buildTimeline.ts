@@ -1,5 +1,5 @@
 import type { NewsProject } from "@/types/project";
-import { getDimensions } from "@/types/project";
+import { getBaseDimensions } from "@/types/project";
 import type { Timeline, TimelineScene, TimelineTransition, TransitionType } from "./types";
 
 /** Split a description into paragraph scenes (unlimited). Falls back to one. */
@@ -23,7 +23,9 @@ const secToFrames = (seconds: number, fps: number) => Math.max(1, Math.round(sec
  */
 export function buildTimeline(project: NewsProject): Timeline {
   const { fps } = project.settings;
-  const { width, height } = getDimensions(project.settings.resolution, project.settings.aspectRatio);
+  // The composition always renders in the 1080p design space; the target
+  // resolution is applied as a render `scale`, so layout is resolution-independent.
+  const { width, height } = getBaseDimensions(project.settings.aspectRatio);
   const sc = project.scenes;
 
   const transitionType: TransitionType = sc.transition;

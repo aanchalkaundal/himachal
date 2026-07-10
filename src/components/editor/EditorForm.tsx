@@ -364,7 +364,7 @@ export function EditorForm() {
           </Field>
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <Field label="Show at (s)">
+          <Field label="First at (s)">
             <Input
               type="number"
               min={0}
@@ -382,6 +382,17 @@ export function EditorForm() {
               onChange={(e) => updateSocial({ durationSeconds: num(e.target.value, 0.5) })}
             />
           </Field>
+          <Field label="Repeat every (s)" hint="0 = show once">
+            <Input
+              type="number"
+              min={0}
+              step={5}
+              value={p.social.repeatEverySeconds}
+              onChange={(e) => updateSocial({ repeatEverySeconds: num(e.target.value, 0) })}
+            />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Position">
             <Select
               value={p.social.position}
@@ -391,6 +402,14 @@ export function EditorForm() {
               <option value="top">Top</option>
             </Select>
           </Field>
+          <label className="mt-6 flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={p.social.showInIntroOutro}
+              onChange={(e) => updateSocial({ showInIntroOutro: e.target.checked })}
+            />
+            Also in intro &amp; outro
+          </label>
         </div>
       </div>
 

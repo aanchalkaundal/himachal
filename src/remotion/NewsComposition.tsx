@@ -32,6 +32,40 @@ function presentationFor(type: TransitionType): TransitionPresentation<Record<st
   }
 }
 
+import type { SocialConfig } from "@/types/project";
+import type { Timeline, TimelineScene } from "@/lib/timeline/types";
+
+/**
+ * Compute the frame windows the social overlay appears in: recurring every
+ * `repeatEverySeconds` (from `showAtSeconds`), plus the whole intro/outro scenes
+ * when enabled. Each window is clamped to the video length.
+ */
+function buildSocialWindows(
+  social: SocialConfig,
+  timeline: Timeline,
+  introScene?: TimelineScene,
+  outroScene?: TimelineScene,
+): Array<{ from: number; dur: number }> {
+  const { fps, totalDurationInFrames: total } = timeline;
+  const durF = Math.max(1, Math.round((social.durationSeconds || 1) * fps));
+  const windows: Array<{ from: number; dur: number }> = [];
+
+  const startS = Math.max(0, social.showAtSeconds || 0);
+  const everyS = social.repeatEverySeconds > 0 ? social.repeatEverySeconds : 0;
+  for (let t = startS; t * fps < total; t += everyS || total) {
+    const from = Math.round(t * fps);
+    windows.push({ from, dur: Math.min(durF, total - from) });
+    if (!everyS) break; // show once
+  }
+
+  if (social.showInIntroOutro) {
+    if (introScene) windows.push({ from: introScene.startFrame, dur: introScene.durationInFrames });
+    if (outroScene) windows.push({ from: outroScene.startFrame, dur: outroScene.durationInFrames });
+  }
+
+  return windows.filter((w) => w.dur > 0 && w.from < total);
+}
+
 /**
  * The single composition rendered by BOTH the live preview (@remotion/player)
  * and the server renderer — guaranteeing pixel-for-pixel parity.
@@ -96,19 +130,14 @@ export const NewsComposition: React.FC<{ project: NewsProject }> = ({ project })
       <LogoBadge logo={project.media.logo} channelName={project.branding.channelName} accent={theme.accent} />
       <Watermark text={project.branding.watermark} bottom={116} />
 
-      {/* Social handles overlay — appears only in the user-chosen time window */}
-      {project.social?.enabled ? (
-        <Sequence
-          from={Math.max(0, Math.round((project.social.showAtSeconds || 0) * timeline.fps))}
-          durationInFrames={Math.max(1, Math.round((project.social.durationSeconds || 1) * timeline.fps))}
-        >
-          <SocialBar
-            social={project.social}
-            accent={theme.accent}
-            durationInFrames={Math.max(1, Math.round((project.social.durationSeconds || 1) * timeline.fps))}
-          />
-        </Sequence>
-      ) : null}
+      {/* Social handles overlay — recurring every N seconds + during intro/outro */}
+      {project.social?.enabled
+        ? buildSocialWindows(project.social, timeline, introScene, outroScene).map((w, i) => (
+            <Sequence key={`social-${i}`} from={w.from} durationInFrames={w.dur}>
+              <SocialBar social={project.social} accent={theme.accent} durationInFrames={w.dur} />
+            </Sequence>
+          ))
+        : null}
 
       {/* 4. Audio */}
       <AudioLayer

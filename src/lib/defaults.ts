@@ -26,7 +26,7 @@ export function createBlankContent(_now: string = new Date().toISOString()): New
 export function createStoryScene(
   name: string,
   content: NewsContent,
-  templateId: TemplateId = "breaking-news",
+  templateId: TemplateId = "modern-news",
   durationSeconds = 6,
   media: StoryScene["media"] = {},
 ): StoryScene {
@@ -49,7 +49,7 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
     date: "",
     time: "",
   };
-  const scene1 = createStoryScene("Scene 1", content, "breaking-news", 6);
+  const scene1 = createStoryScene("Scene 1", content, "modern-news", 6);
   return {
     version: PROJECT_VERSION,
     id: createId(),
@@ -84,19 +84,21 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
       fadeOutSeconds: 1.5,
     },
     social: {
-      enabled: false,
+      enabled: true,
       youtube: "",
       instagram: "",
       facebook: "",
       x: "",
       showAtSeconds: 3,
       durationSeconds: 4,
+      repeatEverySeconds: 30,
+      showInIntroOutro: true,
       position: "bottom",
     },
     anchors: [],
     scenes: {
-      includeIntro: false,
-      includeOutro: false,
+      includeIntro: true,
+      includeOutro: true,
       introSeconds: 2.5,
       headlineSeconds: 5,
       bodySecondsPerParagraph: 4,
@@ -105,10 +107,10 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
       transitionSeconds: 0.6,
     },
     settings: {
-      templateId: "breaking-news",
-      resolution: "1080p",
+      templateId: "modern-news",
+      resolution: "2160p",
       aspectRatio: "16:9",
-      fps: 30,
+      fps: 60,
       format: "mp4",
     },
   };

@@ -147,10 +147,14 @@ export interface SocialConfig {
   instagram: string;
   facebook: string;
   x: string;
-  /** When the overlay appears, in seconds from the start of the video. */
+  /** When the overlay first appears, in seconds from the start of the video. */
   showAtSeconds: number;
-  /** How long the overlay stays on screen, in seconds. */
+  /** How long the overlay stays on screen each time, in seconds. */
   durationSeconds: number;
+  /** Repeat interval in seconds (e.g. 30 = every 30s). 0 = show only once. */
+  repeatEverySeconds: number;
+  /** Also show during the intro and outro scenes. */
+  showInIntroOutro: boolean;
   /** Where it sits vertically. */
   position: "top" | "bottom";
 }
@@ -238,7 +242,7 @@ const BASE_EDGES: Record<Resolution, { long: number; short: number }> = {
   "2160p": { long: 3840, short: 2160 },
 };
 
-/** Compute concrete pixel dimensions for a resolution + aspect ratio (16:9 base). */
+/** Compute concrete OUTPUT pixel dimensions for a resolution + aspect ratio. */
 export function getDimensions(resolution: Resolution, aspect: AspectRatio): { width: number; height: number } {
   const { long, short } = BASE_EDGES[resolution];
   switch (aspect) {
@@ -249,4 +253,29 @@ export function getDimensions(resolution: Resolution, aspect: AspectRatio): { wi
     case "1:1":
       return { width: short, height: short };
   }
+}
+
+/**
+ * Fixed DESIGN-SPACE dimensions (1080p grid) the composition always renders at,
+ * per aspect ratio. Templates use pixel sizes tuned for this space, so changing
+ * resolution never changes the layout — it only changes output sharpness via a
+ * render `scale` (see `getRenderScale`). This keeps 4K identical to 1080p, just
+ * crisper, instead of shrinking all text/margins.
+ */
+export function getBaseDimensions(aspect: AspectRatio): { width: number; height: number } {
+  const long = 1920;
+  const short = 1080;
+  switch (aspect) {
+    case "16:9":
+      return { width: long, height: short };
+    case "9:16":
+      return { width: short, height: long };
+    case "1:1":
+      return { width: short, height: short };
+  }
+}
+
+/** Multiplier from the 1080p design space to the target resolution's long edge. */
+export function getRenderScale(resolution: Resolution): number {
+  return BASE_EDGES[resolution].long / 1920;
 }
