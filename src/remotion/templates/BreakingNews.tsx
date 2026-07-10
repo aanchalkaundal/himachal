@@ -49,7 +49,7 @@ export const BreakingNews: React.FC<TemplateProps> = ({ project }) => {
             ...headlineReveal,
             color: "#fff",
             fontSize: 66,
-            lineHeight: 1.05,
+            lineHeight: 1.25,
             fontWeight: 900,
             textShadow: "0 4px 18px rgba(0,0,0,0.7)",
           }}

@@ -10,7 +10,6 @@ import type { TransitionType } from "@/lib/timeline/types";
 import { buildTimeline } from "@/lib/timeline/buildTimeline";
 import { getTheme } from "@/remotion/theme";
 import { SceneStage } from "@/remotion/SceneStage";
-import { Background } from "@/remotion/components/Background";
 import { NewsTicker } from "@/remotion/components/NewsTicker";
 import { LogoBadge } from "@/remotion/components/LogoBadge";
 import { Watermark } from "@/remotion/components/Watermark";
@@ -50,12 +49,24 @@ export const NewsComposition: React.FC<{ project: NewsProject }> = ({ project })
   const introScene = timeline.scenes.find((s) => s.kind === "intro");
   const outroScene = timeline.scenes.find((s) => s.kind === "outro");
 
+  // The ticker scrolls the scenes' description text (split into sentences), so
+  // "GROUND DETAILS" always reflects what the story is about. If no description
+  // is written, fall back to the manually-typed ticker items.
+  const descriptionItems = (project.storyScenes ?? [])
+    .map((s) => s.content.description?.trim())
+    .filter((d): d is string => Boolean(d))
+    .flatMap((d) =>
+      d
+        .split(/\n+|(?<=[.!?])\s+/)
+        .map((x) => x.trim())
+        .filter(Boolean),
+    );
+  const ticker =
+    descriptionItems.length > 0 ? { ...project.ticker, items: descriptionItems } : project.ticker;
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
-      {/* 1. Background */}
-      <Background media={project.media} from={theme.from} to={theme.to} scrim={theme.scrim} />
-
-      {/* 2. Scene timeline */}
+      {/* 1. Scene timeline — each scene renders its OWN background (per-scene media). */}
       <TransitionSeries>
         {timeline.scenes.map((scene, i) => {
           const transition = i > 0 ? timeline.transitions[i - 1] : null;
@@ -79,7 +90,7 @@ export const NewsComposition: React.FC<{ project: NewsProject }> = ({ project })
       {/* 3. Persistent overlays */}
       <LogoBadge logo={project.media.logo} channelName={project.branding.channelName} accent={theme.accent} />
       <Watermark text={project.branding.watermark} />
-      <NewsTicker ticker={project.ticker} accent={theme.accent} />
+      <NewsTicker ticker={ticker} accent={theme.accent} />
 
       {/* 4. Audio */}
       <AudioLayer

@@ -10,12 +10,19 @@ import { TEMPLATE_LIST } from "@/remotion/templates/registry";
 import type { Resolution, Fps, AspectRatio, VideoFormat } from "@/types/project";
 
 const CATEGORIES = ["GENERAL", "POLITICS", "BUSINESS", "SPORTS", "TECHNOLOGY", "WEATHER", "WORLD", "HEALTH"];
+// Every stack ends with Devanagari fallbacks so Hindi (मात्रा included) always
+// renders, whichever primary font is chosen.
+const DEVANAGARI_FALLBACK = "'Noto Sans Devanagari', 'Nirmala UI', 'Mangal'";
 const FONTS = [
-  "Arial, Helvetica, sans-serif",
-  "Georgia, 'Times New Roman', serif",
-  "'Segoe UI', system-ui, sans-serif",
-  "'Courier New', monospace",
+  `Arial, Helvetica, ${DEVANAGARI_FALLBACK}, sans-serif`,
+  `Georgia, 'Times New Roman', ${DEVANAGARI_FALLBACK}, serif`,
+  `'Segoe UI', system-ui, ${DEVANAGARI_FALLBACK}, sans-serif`,
+  `'Noto Sans Devanagari', 'Nirmala UI', Arial, sans-serif`,
+  `'Courier New', ${DEVANAGARI_FALLBACK}, monospace`,
 ];
+const FONT_LABELS: Record<string, string> = {
+  [`'Noto Sans Devanagari', 'Nirmala UI', Arial, sans-serif`]: "Hindi / Devanagari",
+};
 const ASPECTS: AspectRatio[] = ["16:9", "9:16", "1:1"];
 const TRANSITIONS = ["fade", "slide", "wipe", "none"] as const;
 
@@ -26,15 +33,21 @@ const TRANSITIONS = ["fade", "slide", "wipe", "none"] as const;
  */
 export function EditorForm() {
   const p = useProjectStore((s) => s.current);
-  const updateContent = useProjectStore((s) => s.updateContent);
+  const updateSceneContent = useProjectStore((s) => s.updateSceneContent);
+  const updateSceneMeta = useProjectStore((s) => s.updateSceneMeta);
+  const clearScene = useProjectStore((s) => s.clearScene);
   const updateBranding = useProjectStore((s) => s.updateBranding);
   const updateTicker = useProjectStore((s) => s.updateTicker);
   const setTickerItems = useProjectStore((s) => s.setTickerItems);
   const updateMedia = useProjectStore((s) => s.updateMedia);
+  const updateSceneMedia = useProjectStore((s) => s.updateSceneMedia);
   const updateAudio = useProjectStore((s) => s.updateAudio);
   const updateScenes = useProjectStore((s) => s.updateScenes);
   const updateSettings = useProjectStore((s) => s.updateSettings);
   const setName = useProjectStore((s) => s.setName);
+
+  const activeScene = p.storyScenes.find((sc) => sc.id === p.activeSceneId) ?? p.storyScenes[0];
+  const sceneNumber = p.storyScenes.findIndex((sc) => sc.id === activeScene?.id) + 1;
 
   return (
     <div className="scrollable space-y-1 pr-2 lg:h-full lg:overflow-y-auto">
@@ -42,13 +55,13 @@ export function EditorForm() {
         <Input value={p.name} onChange={(e) => setName(e.target.value)} />
       </Field>
 
-      {/* ---------- Template ---------- */}
-      <SectionTitle>Template</SectionTitle>
+      {/* ---------- Template (per active scene) ---------- */}
+      <SectionTitle>Template · Scene {sceneNumber}</SectionTitle>
       <div className="grid grid-cols-2 gap-2">
         {TEMPLATE_LIST.map((t) => (
           <button
             key={t.id}
-            onClick={() => updateSettings({ templateId: t.id })}
+            onClick={() => updateSceneMeta({ templateId: t.id })}
             className={`rounded-md border p-3 text-left text-sm transition-colors ${
               p.settings.templateId === t.id
                 ? "border-accent-soft bg-surface-raised text-white"
@@ -60,25 +73,52 @@ export function EditorForm() {
         ))}
       </div>
 
-      {/* ---------- News content ---------- */}
-      <SectionTitle>News Content</SectionTitle>
+      {/* ---------- News content (per active scene) ---------- */}
+      <div className="flex items-center justify-between">
+        <SectionTitle>News Content · Scene {sceneNumber}</SectionTitle>
+        <button
+          onClick={() => {
+            if (activeScene && window.confirm(`Clear all content of "${activeScene.name}"? This can't be undone.`)) {
+              clearScene(activeScene.id);
+            }
+          }}
+          className="rounded-md border border-surface-border px-2.5 py-1 text-xs font-semibold text-slate-400 hover:border-accent-soft hover:text-accent-soft"
+          title="Reset this scene's content to blank"
+        >
+          ⟲ Clear scene
+        </button>
+      </div>
       <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Scene name">
+            <Input value={activeScene?.name ?? ""} onChange={(e) => updateSceneMeta({ name: e.target.value })} />
+          </Field>
+          <Field label="Duration (s)">
+            <Input
+              type="number"
+              min={0.5}
+              step={0.5}
+              value={activeScene?.durationSeconds ?? 6}
+              onChange={(e) => updateSceneMeta({ durationSeconds: num(e.target.value, 0.5) })}
+            />
+          </Field>
+        </div>
         <Field label="Headline">
-          <Textarea rows={2} value={p.content.headline} onChange={(e) => updateContent({ headline: e.target.value })} />
+          <Textarea rows={2} value={p.content.headline} onChange={(e) => updateSceneContent({ headline: e.target.value })} />
         </Field>
         <Field label="Subtitle">
-          <Input value={p.content.subtitle} onChange={(e) => updateContent({ subtitle: e.target.value })} />
+          <Input value={p.content.subtitle} onChange={(e) => updateSceneContent({ subtitle: e.target.value })} />
         </Field>
-        <Field label="Description" hint="Each blank-line paragraph becomes its own body scene.">
+        <Field label="Description">
           <Textarea
             rows={4}
             value={p.content.description}
-            onChange={(e) => updateContent({ description: e.target.value })}
+            onChange={(e) => updateSceneContent({ description: e.target.value })}
           />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Category">
-            <Select value={p.content.category} onChange={(e) => updateContent({ category: e.target.value })}>
+            <Select value={p.content.category} onChange={(e) => updateSceneContent({ category: e.target.value })}>
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -87,17 +127,17 @@ export function EditorForm() {
             </Select>
           </Field>
           <Field label="Reporter">
-            <Input value={p.content.reporter} onChange={(e) => updateContent({ reporter: e.target.value })} />
+            <Input value={p.content.reporter} onChange={(e) => updateSceneContent({ reporter: e.target.value })} />
           </Field>
           <Field label="Location">
-            <Input value={p.content.location} onChange={(e) => updateContent({ location: e.target.value })} />
+            <Input value={p.content.location} onChange={(e) => updateSceneContent({ location: e.target.value })} />
           </Field>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Date">
-              <Input type="date" value={p.content.date} onChange={(e) => updateContent({ date: e.target.value })} />
+              <Input type="date" value={p.content.date} onChange={(e) => updateSceneContent({ date: e.target.value })} />
             </Field>
             <Field label="Time">
-              <Input type="time" value={p.content.time} onChange={(e) => updateContent({ time: e.target.value })} />
+              <Input type="time" value={p.content.time} onChange={(e) => updateSceneContent({ time: e.target.value })} />
             </Field>
           </div>
         </div>
@@ -106,21 +146,21 @@ export function EditorForm() {
       {/* ---------- Media ---------- */}
       <SectionTitle>Media</SectionTitle>
       <div className="space-y-2">
-        <MediaUpload label="Logo" accept="image/*" kind="logo" value={p.media.logo} onChange={(v) => updateMedia({ logo: v })} />
+        <MediaUpload label="Logo (all scenes)" accept="image/*" kind="logo" value={p.media.logo} onChange={(v) => updateMedia({ logo: v })} />
         <BackgroundSlidesPanel />
         <MediaUpload
-          label="Background Image"
+          label={`Background Image · Scene ${sceneNumber}`}
           accept="image/*"
           kind="image"
-          value={p.media.backgroundImage}
-          onChange={(v) => updateMedia({ backgroundImage: v })}
+          value={activeScene?.media?.backgroundImage}
+          onChange={(v) => updateSceneMedia({ backgroundImage: v })}
         />
         <MediaUpload
-          label="Background Video"
+          label={`Background Video · Scene ${sceneNumber}`}
           accept="video/*"
           kind="video"
-          value={p.media.backgroundVideo}
-          onChange={(v) => updateMedia({ backgroundVideo: v })}
+          value={activeScene?.media?.backgroundVideo}
+          onChange={(v) => updateSceneMedia({ backgroundVideo: v })}
           preview={false}
         />
         <MediaUpload
@@ -179,7 +219,7 @@ export function EditorForm() {
           <Select value={p.branding.fontFamily} onChange={(e) => updateBranding({ fontFamily: e.target.value })}>
             {FONTS.map((f) => (
               <option key={f} value={f}>
-                {f.split(",")[0].replace(/'/g, "")}
+                {FONT_LABELS[f] ?? f.split(",")[0].replace(/'/g, "")}
               </option>
             ))}
           </Select>
@@ -207,26 +247,15 @@ export function EditorForm() {
             Outro scene
           </label>
         </div>
+        <p className="text-xs text-slate-500">
+          Each scene&apos;s length is set per scene (on the timeline bar above the preview). Intro &amp; outro wrap the whole story.
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Intro (s)">
             <Input
               type="number"
               value={p.scenes.introSeconds}
               onChange={(e) => updateScenes({ introSeconds: num(e.target.value, 0.5) })}
-            />
-          </Field>
-          <Field label="Headline (s)">
-            <Input
-              type="number"
-              value={p.scenes.headlineSeconds}
-              onChange={(e) => updateScenes({ headlineSeconds: num(e.target.value, 1) })}
-            />
-          </Field>
-          <Field label="Body / paragraph (s)">
-            <Input
-              type="number"
-              value={p.scenes.bodySecondsPerParagraph}
-              onChange={(e) => updateScenes({ bodySecondsPerParagraph: num(e.target.value, 1) })}
             />
           </Field>
           <Field label="Outro (s)">
@@ -286,7 +315,10 @@ export function EditorForm() {
             />
           </Field>
         </div>
-        <Field label="Ticker items (one per line)">
+        <Field
+          label="Ticker items (fallback)"
+          hint="The ticker scrolls each scene's Description automatically. These lines are used only when no description is written."
+        >
           <Textarea
             rows={3}
             value={p.ticker.items.join("\n")}

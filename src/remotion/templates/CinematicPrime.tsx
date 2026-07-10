@@ -52,7 +52,7 @@ export const CinematicPrime: React.FC<TemplateProps> = ({ project }) => {
             ...headline,
             color: "#fff",
             fontSize: 76,
-            lineHeight: 1.02,
+            lineHeight: 1.22,
             fontWeight: 900,
             letterSpacing: -1,
             textShadow: "0 6px 28px rgba(0,0,0,0.75)",

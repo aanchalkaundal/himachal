@@ -71,20 +71,33 @@ needing fast vertical (9:16) or square (1:1) news clips.
 
 ### Key features
 
+- **Multi-scene story timeline** — a project is an ordered list of user-authored
+  scenes (Scene 1, 2, 3 …), each with its **own template, editorial content,
+  duration, and background media**. Add / select / reorder / delete scenes on a
+  horizontal bar above the preview; on export they render **sequentially** into one
+  video. (See [§5.8](#58-multi-scene-story-timeline).)
 - **Template engine** — 8 registry-driven templates (Breaking, Modern, Business,
-  Minimal, Cinematic Prime, Live Bulletin, Data Pulse, Sports Spotlight).
-- **Live preview** via `@remotion/player` that matches the export exactly.
-- **Scene/timeline engine** — intro → headline → body paragraphs (unlimited) → outro,
-  with fade/slide/wipe/none transitions.
-- **Server-side rendering** to MP4 (H.264) / WebM (VP8) at 720p/1080p, 16:9 / 9:16 /
-  1:1, 30/60 fps.
+  Minimal, Cinematic Prime, Live Bulletin, Data Pulse, Sports Spotlight); each scene
+  can use a different one.
+- **Live preview** via `@remotion/player` that matches the export exactly (plays once,
+  no loop; starts on user Play).
+- **Scene/timeline engine** — optional intro → story scenes → optional outro, with
+  fade/slide/wipe/none transitions.
+- **Per-scene background media** — each scene owns its **background image / video /
+  slideshow**, so editing one scene never affects another. The **slideshow** plays
+  multiple images once (no loop), each with its own duration, click-to-place **zoom
+  focal point**, and **zoom speed** (Ken Burns). (See [§5.9](#59-per-scene-background-media--slideshow).)
+- **Server-side rendering** to MP4 (H.264) / WebM (VP8) at 720p / 1080p / **1440p (2K)
+  / 2160p (4K)**, 16:9 / 9:16 / 1:1, 30 / 60 fps.
 - **Render queue** with real lifecycle states, true progress %, elapsed + ETA, cancel,
   retry, download.
 - **Anchor Engine** — deterministic parametric SVG virtual presenters (8 of them),
   multi-anchor per project, scene-scoped animation, lazy loading.
-- **Branding** (colors, fonts, watermark, channel name, logo), **ticker**, **audio
-  mixer** (background music + intro/outro stings with fades).
-- **Save/load** project library persisted to `localStorage`.
+- **Branding** (colors, Devanagari/Hindi-ready fonts, watermark, channel name, logo),
+  **description-driven ticker** ("GROUND DETAILS" auto-scrolls each scene's
+  description), **audio mixer** (background music + intro/outro stings with fades).
+- **Per-scene Clear** button and **Save/load** project library persisted to
+  `localStorage`.
 
 ### High-level architecture
 
@@ -137,14 +150,20 @@ All three planned phases are marked **done** in the README:
   save/load.
 - **Phase 3 (done):** modular Anchor Engine — 8 anchors, multi-anchor, layers,
   deterministic talking, scene-scoped timeline integration, lazy loading.
+- **Phase 4 (done, 2026-07-10):** the **multi-scene story timeline** (per-scene
+  template/content/duration/background), **per-scene background media + zooming image
+  slideshow**, **2K/4K** export, **description-driven ticker**, Hindi/Devanagari text
+  fixes, and non-looping single-play preview. Current schema is `PROJECT_VERSION = 6`.
 
-Repo is a fresh git repository on branch `main` with **no commits yet** and no test
-suite (see [Testing](#15-testing)).
+Repo is a git repository on branch `main` (initial commit pushed to
+`github.com/aanchalkaundal/himachal`) with no automated test suite yet (see
+[Testing](#15-testing)).
 
 ### Roadmap
 
-See [Future Plans](#17-future-plans). Next up: more templates, timeline editing UI,
-phoneme-accurate voice-over, parallel export processing.
+See [Future Plans](#17-future-plans). Next up: per-scene branding/ticker overrides,
+drag-to-reorder timeline, phoneme-accurate voice-over, parallel export processing,
+bundled web fonts for cross-platform Devanagari export.
 
 ---
 
@@ -288,8 +307,17 @@ flowchart LR
 ```
 
 - **Single source of truth:** the `current: NewsProject` object in the store. Every
-  form control patches one slice (`updateContent`, `updateBranding`, `updateScenes`,
-  …); the preview subscribes to the same object, so edits are instant.
+  form control patches one slice; the preview subscribes to the same object, so edits
+  are instant.
+- **Per-scene vs global edits:** Template + News Content + background media edit the
+  **active scene** (`updateSceneContent`, `updateSceneMeta`, `updateSceneMedia`,
+  `clearScene`, and the background-slide actions). Branding, ticker, audio, logo,
+  output settings, and anchors are **project-wide** (`updateBranding`, `updateTicker`,
+  `updateMedia`, `updateSettings`, …).
+- **`mirrorActive` helper:** after any scene edit, the store copies the active scene's
+  `content` + `templateId` into the legacy `project.content` / `settings.templateId`
+  so the persistent overlays, theme/background palette, intro/outro, and any legacy
+  reader stay in sync with whatever scene you're editing.
 - Each mutation runs through `touch()` which bumps `updatedAt`.
 - `saveCurrent()` upserts `current` into the persisted `saved[]` library. Only `saved`
   is persisted (`partialize`); `current` is ephemeral working state.
@@ -414,15 +442,40 @@ The picker, preview, and renderer all resolve through the registry — nothing e
 
 | Feature | Files | Notes |
 |---|---|---|
-| **Branding** | `theme.ts`, `LogoBadge`, `Watermark`, defaults | channelName, watermark, primary/secondary color, fontFamily; branding accent overrides template palette accent. |
-| **Ticker** | [`NewsTicker.tsx`](src/remotion/components/NewsTicker.tsx) | Deterministic scroll: `distance = (speed·frame/fps) mod (2·width)`; items joined with `◆`, duplicated for a seamless loop; accent label chip. |
-| **Audio** | [`AudioLayer.tsx`](src/remotion/components/AudioLayer.tsx) | `base = clamp01(masterVolume)·clamp01(musicVolume)`; frame-accurate fade-in/out via `interpolate`; looping background music + intro/outro stings in Sequences. |
+| **Branding** | `theme.ts`, `LogoBadge`, `Watermark`, defaults | channelName, watermark, primary/secondary color, fontFamily (every stack ends with `'Noto Sans Devanagari','Nirmala UI','Mangal'` so Hindi मात्राएँ render); branding accent overrides template palette accent. |
+| **Ticker** | [`NewsTicker.tsx`](src/remotion/components/NewsTicker.tsx), [`NewsComposition.tsx`](src/remotion/NewsComposition.tsx) | Left chip label defaults to **"GROUND DETAILS"**. Items are **auto-derived from each scene's Description** (split on blank lines / sentence ends); the manual `ticker.items` list is only a fallback when no description is written. Deterministic scroll: `distance = (speed·frame/fps) mod (2·width)`; items joined with `◆`, duplicated for a seamless loop. |
+| **Audio** | [`AudioLayer.tsx`](src/remotion/components/AudioLayer.tsx) | `base = clamp01(masterVolume)·clamp01(musicVolume)`; frame-accurate fade-in/out via `interpolate`; looping background music + intro/outro stings in Sequences. Project-wide. |
 
 ### 5.7 Save / Load Library
 
 Persisted `saved[]` in `localStorage` (key `nvg-store-v2`). `saveCurrent()` upserts by
-`id`; `loadProject(id)` clones + migrates; `deleteProject(id)` removes. Media is stored
-inline as data URLs so a saved project reloads exactly.
+`id`; `loadProject(id)` clones + migrates; `deleteProject(id)` removes. Media (incl.
+per-scene backgrounds) is stored inline as data URLs so a saved project reloads exactly.
+
+### 5.8 Multi-Scene Story Timeline
+
+| Aspect | Detail |
+|---|---|
+| **Purpose** | Build a video from several sequential scenes, each independently authored. |
+| **Files** | [`SceneTimelineBar.tsx`](src/components/editor/SceneTimelineBar.tsx), [`projectStore.ts`](src/lib/store/projectStore.ts), [`buildTimeline.ts`](src/lib/timeline/buildTimeline.ts), [`StorySceneRenderer.tsx`](src/remotion/scenes/StorySceneRenderer.tsx) |
+| **Data** | `NewsProject.storyScenes: StoryScene[]` + `activeSceneId`. A `StoryScene` = `{ id, name, templateId, durationSeconds, content, media }`. Always ≥ 1 scene. |
+| **User flow** | A horizontal **Scene Timeline bar** sits above the preview. Cards show each scene's number, name, template, headline snippet, and duration. **＋ Add scene** appends a blank scene; click a card to edit it in the form; **← →** reorder; **✕** delete. |
+| **Business logic** | `buildTimeline` emits one `story` scene per `StoryScene` (optional intro/outro wrap them), each carrying its `StoryScene` in `scene.data`. `StorySceneRenderer` shallow-clones the project with that scene's `content` + `templateId` and renders the chosen template — so one video can mix templates/content with **no template code change**. |
+| **Edit mapping** | Form Template + News Content bind to the active scene via `updateSceneMeta` / `updateSceneContent`; `clearScene(id)` wipes one scene's content to blank; `mirrorActive` keeps globals in sync. |
+| **Migration** | Pre-v5 single-content projects become a one-scene timeline automatically. |
+| **Future** | Per-scene branding/ticker overrides; drag-to-reorder; preview auto-seek to selected scene. |
+
+### 5.9 Per-Scene Background Media & Slideshow
+
+| Aspect | Detail |
+|---|---|
+| **Purpose** | Give each scene its own background (image / video / zooming slideshow), fully independent of other scenes. |
+| **Files** | [`SceneMedia` in `types/project.ts`](src/types/project.ts), [`Background.tsx`](src/remotion/components/Background.tsx), [`SceneStage.tsx`](src/remotion/SceneStage.tsx), [`BackgroundSlidesPanel.tsx`](src/components/editor/BackgroundSlidesPanel.tsx) |
+| **Data** | `StoryScene.media: SceneMedia = { backgroundImage?, backgroundVideo?, backgroundSlides? }`. `BackgroundSlide = { id, src, durationSeconds, focalX, focalY, zoomSpeed }`. |
+| **Rendering** | `Background` renders **inside each scene** (in `SceneStage`) from that scene's resolved media — there is no global background layer, so per-scene backgrounds cross-fade with the scene transition. Precedence per scene: video → slideshow → image → themed gradient (always a legibility scrim). |
+| **Slideshow logic** | Plays images **once, in order (no loop)** — each image zooms once toward its click-placed focal point at its own speed; the **last image holds + keeps zooming to the end**, so a single image zooms continuously with no repeat. Neighbouring slides cross-fade. |
+| **Store** | Background actions (`updateSceneMedia`, `addBackgroundSlide`, `updateBackgroundSlide`, `removeBackgroundSlide`, `reorderBackgroundSlide`) patch the **active scene** via `patchActiveMedia`. |
+| **Why it matters** | Fixes the earlier bug where removing an image from one scene removed it from all (media used to be project-level global). Logo / watermark / music remain project-wide. |
 
 ---
 
@@ -449,14 +502,25 @@ erDiagram
     NEWS_PROJECT ||--|| AUDIO_SETTINGS : has
     NEWS_PROJECT ||--|| SCENE_CONFIG : has
     NEWS_PROJECT ||--|| VIDEO_SETTINGS : has
+    NEWS_PROJECT ||--o{ STORY_SCENE : "story timeline (ordered)"
     NEWS_PROJECT ||--o{ ANCHOR_INSTANCE : places
+    STORY_SCENE ||--|| NEWS_CONTENT : has
+    STORY_SCENE ||--|| SCENE_MEDIA : has
+    SCENE_MEDIA ||--o{ BACKGROUND_SLIDE : "slideshow (ordered)"
 
     NEWS_PROJECT {
-        number version
+        number version "= 6"
         string id PK
         string name
+        string activeSceneId FK
         string createdAt
         string updatedAt
+    }
+    STORY_SCENE {
+        string id PK
+        string name
+        TemplateId templateId
+        number durationSeconds
     }
     NEWS_CONTENT {
         string headline
@@ -468,9 +532,21 @@ erDiagram
         string date
         string time
     }
+    SCENE_MEDIA {
+        string backgroundImage "data URL, optional"
+        string backgroundVideo "data URL, optional"
+    }
+    BACKGROUND_SLIDE {
+        string id PK
+        string src "image data URL"
+        number durationSeconds
+        number focalX "0..100"
+        number focalY "0..100"
+        number zoomSpeed "%/s"
+    }
     VIDEO_SETTINGS {
-        TemplateId templateId
-        Resolution resolution
+        TemplateId templateId "mirrors active scene"
+        Resolution resolution "720p/1080p/1440p/2160p"
         AspectRatio aspectRatio
         Fps fps
         VideoFormat format
@@ -484,10 +560,13 @@ erDiagram
 ```
 
 **"Field" reference** — see the interfaces in [`types/project.ts`](src/types/project.ts):
-`NewsContent`, `MediaAssets`, `Branding`, `TickerConfig`, `AudioSettings`,
+`NewsContent`, `MediaAssets` (project-level: logo/thumbnail/music), `StoryScene`,
+`SceneMedia`, `BackgroundSlide`, `Branding`, `TickerConfig`, `AudioSettings`,
 `SceneConfig`, `VideoSettings`, and `AnchorInstance` in
 [`anchors/types.ts`](src/anchors/types.ts). Defaults/sample data:
-[`createDefaultProject()`](src/lib/defaults.ts).
+[`createDefaultProject()`](src/lib/defaults.ts). Current schema `PROJECT_VERSION = 6`;
+[`migrateProject()`](src/lib/store/projectStore.ts) backfills every older shape
+(single-content → one scene; project-level backgrounds → Scene 1's media).
 
 - **Constraints:** enforced only at the TypeScript type level (no runtime schema
   validation library). `anchorId` references an entry in the anchor registry.
@@ -1025,6 +1104,26 @@ anchors).
 > git commits yet**, so this is the authoritative history until git history exists.
 
 ### 2026-07-10
+- **Fixed cross-scene media bug + made background media per-scene:** background
+  image/video/slideshow were project-level (global), so removing an image from
+  one scene removed it from all. Added `SceneMedia` to `StoryScene`
+  (`PROJECT_VERSION` 5→6); `Background` now renders **inside each scene**
+  (`SceneStage`) from that scene's own media (global `Background` removed from
+  `NewsComposition`). Slide actions + new `updateSceneMedia` now patch the
+  **active scene**; editor background controls are labelled per-scene. Migration
+  carries any legacy project-level background into Scene 1. Logo/watermark/music
+  stay project-wide. `npm run typecheck` passes.
+- **Added multi-scene story timeline:** a project is now an ordered list of
+  user-authored scenes (`StoryScene[]` on `NewsProject`, `PROJECT_VERSION` 4→5),
+  each with its **own template, content, and duration**, rendered **sequentially**
+  into one video. New horizontal **Scene Timeline bar** above the preview
+  (`SceneTimelineBar.tsx`) to add/select/reorder/delete scenes; the form's
+  Template + News Content sections now edit the **active scene**. New store
+  actions (`selectScene`/`addScene`/`removeScene`/`reorderScene`/
+  `updateSceneContent`/`updateSceneMeta`) + `mirrorActive` helper keeping
+  legacy `content`/`settings.templateId` in sync. `buildTimeline` gained a
+  story path + new `story` scene kind (`StorySceneRenderer.tsx`). Pre-v5
+  projects migrate to a single Scene 1. `npm run typecheck` passes.
 - **Added 2K & 4K export resolutions:** `Resolution` union extended to
   `720p | 1080p | 1440p | 2160p`; `getDimensions` now uses a `BASE_EDGES` table
   (1440p = 2560×1440 QHD, 2160p = 3840×2160 UHD) keeping even dimensions across

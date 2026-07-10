@@ -51,7 +51,7 @@ export const DataPulse: React.FC<TemplateProps> = ({ project }) => {
           style={{
             ...headline,
             fontSize: 68,
-            lineHeight: 1.04,
+            lineHeight: 1.22,
             fontWeight: 900,
             letterSpacing: -0.5,
             backgroundImage: `linear-gradient(100deg, #ffffff 30%, ${secondary})`,

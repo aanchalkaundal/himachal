@@ -64,7 +64,7 @@ export const SportsSpotlight: React.FC<TemplateProps> = ({ project }) => {
             ...headline,
             color: "#fff",
             fontSize: 84,
-            lineHeight: 0.98,
+            lineHeight: 1.2,
             fontWeight: 900,
             letterSpacing: -1,
             textTransform: "uppercase",

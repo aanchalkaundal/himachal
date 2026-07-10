@@ -27,31 +27,38 @@ const SlideShow: React.FC<{ slides: BackgroundSlide[] }> = ({ slides }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Per-slide durations in frames (min 1) + cumulative starts.
+  // Per-slide durations in frames (min 1) + cumulative start frames. No looping:
+  // slides play through ONCE, in order. Each image zooms exactly once. The last
+  // image keeps holding + zooming until the video ends (it never restarts), so a
+  // single image zooms continuously for the whole video with no repeat.
   const durations = slides.map((s) => Math.max(1, Math.round((s.durationSeconds || 1) * fps)));
-  const total = durations.reduce((a, b) => a + b, 0);
-  const looped = total > 0 ? ((frame % total) + total) % total : 0;
+  const starts = durations.map((_, i) => durations.slice(0, i).reduce((a, b) => a + b, 0));
 
   return (
     <AbsoluteFill>
       {slides.map((slide, i) => {
-        const start = durations.slice(0, i).reduce((a, b) => a + b, 0);
+        const start = starts[i];
         const dur = durations[i];
-        const local = looped - start;
+        const isLast = i === slides.length - 1;
+        const local = frame - start; // frames since THIS slide appeared (unbounded)
 
-        // Zoom toward the focal point: +zoomSpeed% scale per second from frame 0.
+        // Not on screen yet.
+        if (local < 0) return null;
+        // Fully finished (a later slide has taken over) — skip. The last slide is
+        // never "finished": it holds to the end.
+        if (!isLast && local > dur) return null;
+
+        // Continuous zoom toward the focal point: +zoomSpeed% scale per second,
+        // measured from when this slide appeared — never reset mid-slide.
         const scale = 1 + ((slide.zoomSpeed || 0) / 100) * (local / fps);
 
-        // Cross-fade: fade in at the slide's start, fade out at its end. The
-        // previous/next slide underneath provides the other half of the blend.
-        const opacity = interpolate(
-          local,
-          [-SLIDE_FADE_FRAMES, 0, dur - SLIDE_FADE_FRAMES, dur],
-          [0, 1, 1, 0],
-          { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-        );
-
-        // Skip slides that are fully off to keep the tree light.
+        // Cross-fade: first slide starts fully visible; others fade in as the
+        // previous one fades out. Non-last slides fade out at their end.
+        const fadeIn = i === 0 ? 1 : interpolate(local, [0, SLIDE_FADE_FRAMES], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+        const fadeOut = isLast
+          ? 1
+          : interpolate(local, [dur - SLIDE_FADE_FRAMES, dur], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+        const opacity = Math.min(fadeIn, fadeOut);
         if (opacity <= 0) return null;
 
         return (

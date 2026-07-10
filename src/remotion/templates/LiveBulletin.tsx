@@ -60,7 +60,7 @@ export const LiveBulletin: React.FC<TemplateProps> = ({ project }) => {
             <div style={{ color: accent, fontWeight: 800, fontSize: 22, letterSpacing: 3, textTransform: "uppercase" }}>
               {content.category}
             </div>
-            <div style={{ color: "#fff", fontSize: 58, lineHeight: 1.06, fontWeight: 900, marginTop: 8 }}>
+            <div style={{ color: "#fff", fontSize: 58, lineHeight: 1.25, fontWeight: 900, marginTop: 8 }}>
               {content.headline}
             </div>
             {content.subtitle ? (

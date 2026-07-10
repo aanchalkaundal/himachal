@@ -21,7 +21,7 @@ export const MinimalNews: React.FC<TemplateProps> = ({ project }) => {
         <div style={{ color: accent, fontWeight: 700, fontSize: 22, letterSpacing: 6, marginBottom: 18 }}>
           {content.category.toUpperCase()}
         </div>
-        <div style={{ ...reveal, color: "#fff", fontSize: 72, fontWeight: 300, lineHeight: 1.08, letterSpacing: -1 }}>
+        <div style={{ ...reveal, color: "#fff", fontSize: 72, fontWeight: 300, lineHeight: 1.25, letterSpacing: -1 }}>
           {content.headline}
         </div>
         <div style={{ ...underline, height: 4, width: 180, background: accent, marginTop: 24 }} />

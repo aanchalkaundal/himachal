@@ -34,7 +34,7 @@ export const BusinessNews: React.FC<TemplateProps> = ({ project }) => {
         }}
       >
         <div style={{ color: accent, fontWeight: 800, fontSize: 22, letterSpacing: 3 }}>{content.category}</div>
-        <div style={{ color: "#fff", fontSize: 52, lineHeight: 1.08, fontWeight: 800, marginTop: 14 }}>
+        <div style={{ color: "#fff", fontSize: 52, lineHeight: 1.25, fontWeight: 800, marginTop: 14 }}>
           {content.headline}
         </div>
         {content.subtitle ? (

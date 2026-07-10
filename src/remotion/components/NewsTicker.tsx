@@ -21,7 +21,16 @@ export const NewsTicker: React.FC<NewsTickerProps> = ({ ticker, accent, bottom =
 
   const message = ticker.items.join("     ◆     ");
   const seconds = frame / fps;
-  const distance = (ticker.speed * seconds) % (width * 2);
+
+  // Loop period must cover the ENTIRE message (plus a gap), otherwise a long
+  // description gets cut off after ~2×width and never fully scrolls. We estimate
+  // the rendered text width (generously, so copies never overlap) and place a
+  // second copy exactly one period later for a seamless wrap.
+  const GAP = 120;
+  const CHAR_W = 14; // generous avg px/char at 24px bold
+  const contentWidth = Math.max(width, message.length * CHAR_W);
+  const period = contentWidth + GAP;
+  const distance = (ticker.speed * seconds) % period;
 
   return (
     <div
@@ -54,17 +63,20 @@ export const NewsTicker: React.FC<NewsTickerProps> = ({ ticker, accent, bottom =
       >
         {ticker.label}
       </div>
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", alignItems: "center" }}>
+      <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex", alignItems: "center" }}>
         <div
           style={{
-            whiteSpace: "nowrap",
+            position: "relative",
+            height: 24,
             color: "#fff",
             fontSize: 24,
             fontWeight: 600,
             transform: `translateX(${width - distance}px)`,
           }}
         >
-          {message}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{message}
+          {/* Two copies exactly one period apart → seamless loop, full message shown. */}
+          <span style={{ position: "absolute", left: 0, whiteSpace: "nowrap" }}>{message}</span>
+          <span style={{ position: "absolute", left: period, whiteSpace: "nowrap" }}>{message}</span>
         </div>
       </div>
     </div>

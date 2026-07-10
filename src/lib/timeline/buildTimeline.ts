@@ -26,7 +26,6 @@ export function buildTimeline(project: NewsProject): Timeline {
   const { width, height } = getDimensions(project.settings.resolution, project.settings.aspectRatio);
   const sc = project.scenes;
 
-  const paragraphs = splitParagraphs(project.content.description);
   const transitionType: TransitionType = sc.transition;
   const transitionFrames = transitionType === "none" ? 0 : secToFrames(sc.transitionSeconds, fps);
 
@@ -36,14 +35,31 @@ export function buildTimeline(project: NewsProject): Timeline {
   if (sc.includeIntro) {
     draft.push({ kind: "intro", durationInFrames: secToFrames(sc.introSeconds, fps) });
   }
-  draft.push({ kind: "headline", durationInFrames: secToFrames(sc.headlineSeconds, fps) });
-  paragraphs.forEach((paragraph, i) => {
-    draft.push({
-      kind: "body",
-      durationInFrames: secToFrames(sc.bodySecondsPerParagraph, fps),
-      data: { paragraph, paragraphIndex: i, paragraphCount: paragraphs.length },
+
+  const storyScenes = project.storyScenes ?? [];
+  if (storyScenes.length > 0) {
+    // Story-timeline path: one scene per user-authored StoryScene, each with its
+    // own template + content + duration. Rendered sequentially into one video.
+    storyScenes.forEach((scene) => {
+      draft.push({
+        kind: "story",
+        durationInFrames: secToFrames(scene.durationSeconds, fps),
+        data: { storyScene: scene },
+      });
     });
-  });
+  } else {
+    // Legacy single-content path: headline + one body scene per paragraph.
+    const paragraphs = splitParagraphs(project.content.description);
+    draft.push({ kind: "headline", durationInFrames: secToFrames(sc.headlineSeconds, fps) });
+    paragraphs.forEach((paragraph, i) => {
+      draft.push({
+        kind: "body",
+        durationInFrames: secToFrames(sc.bodySecondsPerParagraph, fps),
+        data: { paragraph, paragraphIndex: i, paragraphCount: paragraphs.length },
+      });
+    });
+  }
+
   if (sc.includeOutro) {
     draft.push({ kind: "outro", durationInFrames: secToFrames(sc.outroSeconds, fps) });
   }

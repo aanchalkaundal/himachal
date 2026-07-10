@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useProjectStore } from "@/lib/store/projectStore";
 import { useExportQueue } from "@/lib/export/useExportQueue";
 import { EditorForm } from "./EditorForm";
+import { SceneTimelineBar } from "./SceneTimelineBar";
 import { Button } from "@/components/ui/primitives";
 import { getDimensions } from "@/types/project";
 import { buildTimeline } from "@/lib/timeline/buildTimeline";
@@ -88,6 +89,8 @@ export function Editor() {
         {/* Live preview */}
         <div className="scrollable flex flex-col items-center justify-start bg-black/40 p-8 lg:overflow-y-auto">
           <div className="w-full max-w-4xl">
+            {/* Horizontal scene timeline — add/select/reorder scenes above the video */}
+            <SceneTimelineBar />
             <div className="mb-3 flex items-center justify-between text-xs text-slate-500">
               <span>
                 Live Preview · {timeline.scenes.length} scenes ({project.settings.aspectRatio})

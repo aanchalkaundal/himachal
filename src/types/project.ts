@@ -62,10 +62,22 @@ export interface BackgroundSlide {
 }
 
 /**
+ * Per-scene visual background. Kept separate from project-level MediaAssets so
+ * each scene owns its own imagery — removing a scene's image never touches
+ * another scene. (Logo, music, watermark stay project-level / channel-wide.)
+ */
+export interface SceneMedia {
+  backgroundImage?: string;
+  backgroundVideo?: string;
+  /** Per-scene background slideshow (multi-image with zoom). */
+  backgroundSlides?: BackgroundSlide[];
+}
+
+/**
  * One user-authored scene on the story timeline. A project is an ordered list of
  * these; the renderer plays them back-to-back into a single video. Each scene has
- * its own template and editorial content, so a project can mix looks (e.g. a
- * Breaking-News opener, a Business segment, a Sports closer).
+ * its own template, editorial content, and background media, so a project can mix
+ * looks (e.g. a Breaking-News opener, a Business segment, a Sports closer).
  */
 export interface StoryScene {
   id: string;
@@ -77,6 +89,8 @@ export interface StoryScene {
   durationSeconds: number;
   /** This scene's editorial content. */
   content: NewsContent;
+  /** This scene's own background imagery. */
+  media: SceneMedia;
 }
 
 /**
@@ -182,7 +196,7 @@ export interface NewsProject {
 }
 
 /** Current project schema version. */
-export const PROJECT_VERSION = 5;
+export const PROJECT_VERSION = 6;
 
 /**
  * Base long/short edge (px) per resolution, on a 16:9 grid. Actual width/height

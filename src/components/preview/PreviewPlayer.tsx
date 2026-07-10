@@ -24,8 +24,6 @@ export function PreviewPlayer({ project }: { project: NewsProject }) {
       compositionWidth={timeline.width}
       compositionHeight={timeline.height}
       fps={timeline.fps}
-      loop
-      autoPlay
       controls
       style={{ width: "100%", borderRadius: 12, overflow: "hidden" }}
     />

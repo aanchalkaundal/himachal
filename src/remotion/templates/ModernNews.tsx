@@ -34,7 +34,7 @@ export const ModernNews: React.FC<TemplateProps> = ({ project }) => {
             <div style={{ ...catFade, color: accent, fontWeight: 800, fontSize: 22, letterSpacing: 3 }}>
               {content.category}
             </div>
-            <div style={{ color: "#fff", fontSize: 54, lineHeight: 1.08, fontWeight: 800, marginTop: 8 }}>
+            <div style={{ color: "#fff", fontSize: 54, lineHeight: 1.25, fontWeight: 800, marginTop: 8 }}>
               {content.headline}
             </div>
             {content.subtitle ? (

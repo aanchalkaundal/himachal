@@ -20,7 +20,10 @@ const NO_SLIDES: BackgroundSlide[] = [];
  * back deterministically.
  */
 export function BackgroundSlidesPanel() {
-  const slides = useProjectStore((s) => s.current.media.backgroundSlides ?? NO_SLIDES);
+  const slides = useProjectStore((s) => {
+    const active = s.current.storyScenes.find((sc) => sc.id === s.current.activeSceneId);
+    return active?.media?.backgroundSlides ?? NO_SLIDES;
+  });
   const addBackgroundSlide = useProjectStore((s) => s.addBackgroundSlide);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -51,10 +54,10 @@ export function BackgroundSlidesPanel() {
       <div className="mb-3 flex items-center justify-between">
         <div>
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Background Slideshow
+            Background Slideshow · this scene
           </span>
           <p className="mt-0.5 text-[11px] text-slate-500">
-            Multiple images, each with its own duration, zoom point and speed. Loops to fill the video.
+            Images for the selected scene only — each with its own duration, zoom point and speed.
             {slides.length > 0 ? ` · ${slides.length} image${slides.length > 1 ? "s" : ""} · ${totalSeconds.toFixed(1)}s loop` : ""}
           </p>
         </div>

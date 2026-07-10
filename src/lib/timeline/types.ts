@@ -1,9 +1,10 @@
-import type { AspectRatio, Fps } from "@/types/project";
+import type { AspectRatio, Fps, StoryScene } from "@/types/project";
 
 /** Kinds of scene the timeline engine can emit. Extend freely — the renderer
  * resolves each kind through the scene registry, so new kinds don't touch the
- * render pipeline. */
-export type SceneKind = "intro" | "headline" | "body" | "outro";
+ * render pipeline. `story` = a user-authored timeline scene (its own template +
+ * content); `headline`/`body` are the legacy single-content path. */
+export type SceneKind = "intro" | "headline" | "body" | "outro" | "story";
 
 export type TransitionType = "fade" | "slide" | "wipe" | "none";
 
@@ -18,8 +19,14 @@ export interface TimelineScene {
   startFrame: number;
   /** Absolute end frame (exclusive). */
   endFrame: number;
-  /** Optional per-scene payload (e.g. a body paragraph). */
-  data?: { paragraph?: string; paragraphIndex?: number; paragraphCount?: number };
+  /** Optional per-scene payload (e.g. a body paragraph, or a story scene). */
+  data?: {
+    paragraph?: string;
+    paragraphIndex?: number;
+    paragraphCount?: number;
+    /** For `story` scenes: the user-authored scene to render. */
+    storyScene?: StoryScene;
+  };
 }
 
 /** Transition inserted between scene[i] and scene[i+1]. */

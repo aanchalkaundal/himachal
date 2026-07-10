@@ -12,10 +12,12 @@ import type {
   AudioSettings,
   SceneConfig,
   BackgroundSlide,
+  StoryScene,
+  SceneMedia,
 } from "@/types/project";
 import { PROJECT_VERSION } from "@/types/project";
 import type { AnchorInstance } from "@/anchors/types";
-import { createDefaultProject } from "@/lib/defaults";
+import { createDefaultProject, createStoryScene, createBlankContent } from "@/lib/defaults";
 
 interface ProjectState {
   /** The project currently open in the editor. */
@@ -30,9 +32,11 @@ interface ProjectState {
   updateContent: (patch: Partial<NewsContent>) => void;
   updateBranding: (patch: Partial<Branding>) => void;
   updateTicker: (patch: Partial<TickerConfig>) => void;
+  /** Project-level media (logo, music, watermark, thumbnail). */
   updateMedia: (patch: Partial<MediaAssets>) => void;
 
-  // --- background slideshow ---
+  // --- per-scene background media (applies to the ACTIVE scene) ---
+  updateSceneMedia: (patch: Partial<SceneMedia>) => void;
   addBackgroundSlide: (slide: BackgroundSlide) => void;
   updateBackgroundSlide: (id: string, patch: Partial<BackgroundSlide>) => void;
   removeBackgroundSlide: (id: string) => void;
@@ -42,6 +46,18 @@ interface ProjectState {
   updateScenes: (patch: Partial<SceneConfig>) => void;
   updateSettings: (patch: Partial<VideoSettings>) => void;
   setTickerItems: (items: string[]) => void;
+
+  // --- story timeline (multi-scene) ---
+  selectScene: (id: string) => void;
+  addScene: () => void;
+  removeScene: (id: string) => void;
+  reorderScene: (id: string, direction: -1 | 1) => void;
+  /** Patch the ACTIVE scene's editorial content. */
+  updateSceneContent: (patch: Partial<NewsContent>) => void;
+  /** Patch the ACTIVE scene's metadata (name / template / duration). */
+  updateSceneMeta: (patch: Partial<Pick<StoryScene, "name" | "templateId" | "durationSeconds">>) => void;
+  /** Wipe one scene's editorial content back to blank (keeps template/duration/name). */
+  clearScene: (id: string) => void;
 
   // --- anchors (Anchor Engine) ---
   addAnchor: (instance: AnchorInstance) => void;
@@ -59,13 +75,32 @@ function touch(p: NewsProject): NewsProject {
 }
 
 /**
+ * Keep the legacy `content` + `settings.templateId` in sync with the active
+ * scene. Intro/outro scenes, the persistent themed background, and any code
+ * still reading `project.content` all follow whatever scene is being edited.
+ */
+function mirrorActive(p: NewsProject): NewsProject {
+  const active = p.storyScenes.find((s) => s.id === p.activeSceneId) ?? p.storyScenes[0];
+  if (!active) return p;
+  return { ...p, content: active.content, settings: { ...p.settings, templateId: active.templateId } };
+}
+
+/** Immutably patch the ACTIVE scene's media and re-mirror. */
+function patchActiveMedia(p: NewsProject, fn: (m: SceneMedia) => SceneMedia): NewsProject {
+  const storyScenes = p.storyScenes.map((sc) =>
+    sc.id === p.activeSceneId ? { ...sc, media: fn(sc.media ?? {}) } : sc,
+  );
+  return mirrorActive({ ...p, storyScenes });
+}
+
+/**
  * Backfill any missing fields on a project loaded from an older schema so that
  * save/load restores a project exactly and forward-compatibly. Existing values
  * always win over the defaults.
  */
 export function migrateProject(input: Partial<NewsProject>): NewsProject {
   const d = createDefaultProject(input.createdAt ?? new Date().toISOString());
-  return {
+  const merged: NewsProject = {
     ...d,
     ...input,
     version: PROJECT_VERSION,
@@ -77,7 +112,36 @@ export function migrateProject(input: Partial<NewsProject>): NewsProject {
     scenes: { ...d.scenes, ...input.scenes },
     anchors: input.anchors ?? d.anchors,
     settings: { ...d.settings, ...input.settings },
+    storyScenes: d.storyScenes, // replaced below
+    activeSceneId: d.activeSceneId,
   };
+
+  // Backfill the story timeline. Pre-v5 projects had a single `content` +
+  // `settings.templateId`; turn that into a one-scene timeline. Pre-v6 scenes had
+  // no per-scene media, and background imagery lived on the project — carry that
+  // into the first scene so nothing visually disappears on upgrade.
+  const legacyBg: SceneMedia = {
+    backgroundImage: merged.media.backgroundImage,
+    backgroundVideo: merged.media.backgroundVideo,
+    backgroundSlides: merged.media.backgroundSlides,
+  };
+  const rawScenes =
+    input.storyScenes && input.storyScenes.length > 0
+      ? input.storyScenes
+      : [createStoryScene("Scene 1", merged.content, merged.settings.templateId, merged.scenes.headlineSeconds || 6, legacyBg)];
+  const scenes = rawScenes.map((sc, i) => ({
+    ...sc,
+    // Ensure every scene has its own media; give the first scene any legacy
+    // project-level background if it has none of its own.
+    media: sc.media ?? (i === 0 ? legacyBg : {}),
+  }));
+  merged.storyScenes = scenes;
+  merged.activeSceneId =
+    input.activeSceneId && scenes.some((s) => s.id === input.activeSceneId)
+      ? input.activeSceneId
+      : scenes[0].id;
+
+  return mirrorActive(merged);
 }
 
 export const useProjectStore = create<ProjectState>()(
@@ -104,43 +168,40 @@ export const useProjectStore = create<ProjectState>()(
       updateMedia: (patch) =>
         set((s) => ({ current: touch({ ...s.current, media: { ...s.current.media, ...patch } }) })),
 
+      // --- per-scene background media (ACTIVE scene) ---
+      updateSceneMedia: (patch) =>
+        set((s) => ({ current: touch(patchActiveMedia(s.current, (m) => ({ ...m, ...patch }))) })),
       addBackgroundSlide: (slide) =>
         set((s) => ({
-          current: touch({
-            ...s.current,
-            media: { ...s.current.media, backgroundSlides: [...(s.current.media.backgroundSlides ?? []), slide] },
-          }),
+          current: touch(patchActiveMedia(s.current, (m) => ({ ...m, backgroundSlides: [...(m.backgroundSlides ?? []), slide] }))),
         })),
       updateBackgroundSlide: (id, patch) =>
         set((s) => ({
-          current: touch({
-            ...s.current,
-            media: {
-              ...s.current.media,
-              backgroundSlides: (s.current.media.backgroundSlides ?? []).map((sl) =>
-                sl.id === id ? { ...sl, ...patch } : sl,
-              ),
-            },
-          }),
+          current: touch(
+            patchActiveMedia(s.current, (m) => ({
+              ...m,
+              backgroundSlides: (m.backgroundSlides ?? []).map((sl) => (sl.id === id ? { ...sl, ...patch } : sl)),
+            })),
+          ),
         })),
       removeBackgroundSlide: (id) =>
         set((s) => ({
-          current: touch({
-            ...s.current,
-            media: {
-              ...s.current.media,
-              backgroundSlides: (s.current.media.backgroundSlides ?? []).filter((sl) => sl.id !== id),
-            },
-          }),
+          current: touch(
+            patchActiveMedia(s.current, (m) => ({
+              ...m,
+              backgroundSlides: (m.backgroundSlides ?? []).filter((sl) => sl.id !== id),
+            })),
+          ),
         })),
       reorderBackgroundSlide: (id, direction) =>
         set((s) => {
-          const arr = [...(s.current.media.backgroundSlides ?? [])];
+          const active = s.current.storyScenes.find((sc) => sc.id === s.current.activeSceneId);
+          const arr = [...(active?.media?.backgroundSlides ?? [])];
           const i = arr.findIndex((sl) => sl.id === id);
           const j = i + direction;
           if (i < 0 || j < 0 || j >= arr.length) return {};
           [arr[i], arr[j]] = [arr[j], arr[i]];
-          return { current: touch({ ...s.current, media: { ...s.current.media, backgroundSlides: arr } }) };
+          return { current: touch(patchActiveMedia(s.current, (m) => ({ ...m, backgroundSlides: arr }))) };
         }),
       updateAudio: (patch) =>
         set((s) => ({ current: touch({ ...s.current, audio: { ...s.current.audio, ...patch } }) })),
@@ -150,6 +211,75 @@ export const useProjectStore = create<ProjectState>()(
         set((s) => ({ current: touch({ ...s.current, settings: { ...s.current.settings, ...patch } }) })),
       setTickerItems: (items) =>
         set((s) => ({ current: touch({ ...s.current, ticker: { ...s.current.ticker, items } }) })),
+
+      // --- story timeline ---
+      selectScene: (id) =>
+        set((s) => {
+          if (!s.current.storyScenes.some((sc) => sc.id === id)) return {};
+          return { current: touch(mirrorActive({ ...s.current, activeSceneId: id })) };
+        }),
+      addScene: () =>
+        set((s) => {
+          const n = s.current.storyScenes.length + 1;
+          // New scenes start blank so the user fills them in, but inherit the
+          // active scene's template + duration as a sensible starting point.
+          const active = s.current.storyScenes.find((sc) => sc.id === s.current.activeSceneId);
+          const scene = createStoryScene(
+            `Scene ${n}`,
+            createBlankContent(),
+            active?.templateId ?? s.current.settings.templateId,
+            active?.durationSeconds ?? 6,
+          );
+          return {
+            current: touch(
+              mirrorActive({
+                ...s.current,
+                storyScenes: [...s.current.storyScenes, scene],
+                activeSceneId: scene.id,
+              }),
+            ),
+          };
+        }),
+      removeScene: (id) =>
+        set((s) => {
+          const remaining = s.current.storyScenes.filter((sc) => sc.id !== id);
+          // Always keep at least one scene.
+          const scenes = remaining.length > 0 ? remaining : [createStoryScene("Scene 1", createBlankContent())];
+          const activeSceneId = scenes.some((sc) => sc.id === s.current.activeSceneId)
+            ? s.current.activeSceneId
+            : scenes[0].id;
+          return { current: touch(mirrorActive({ ...s.current, storyScenes: scenes, activeSceneId })) };
+        }),
+      reorderScene: (id, direction) =>
+        set((s) => {
+          const arr = [...s.current.storyScenes];
+          const i = arr.findIndex((sc) => sc.id === id);
+          const j = i + direction;
+          if (i < 0 || j < 0 || j >= arr.length) return {};
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+          return { current: touch({ ...s.current, storyScenes: arr }) };
+        }),
+      updateSceneContent: (patch) =>
+        set((s) => {
+          const scenes = s.current.storyScenes.map((sc) =>
+            sc.id === s.current.activeSceneId ? { ...sc, content: { ...sc.content, ...patch } } : sc,
+          );
+          return { current: touch(mirrorActive({ ...s.current, storyScenes: scenes })) };
+        }),
+      updateSceneMeta: (patch) =>
+        set((s) => {
+          const scenes = s.current.storyScenes.map((sc) =>
+            sc.id === s.current.activeSceneId ? { ...sc, ...patch } : sc,
+          );
+          return { current: touch(mirrorActive({ ...s.current, storyScenes: scenes })) };
+        }),
+      clearScene: (id) =>
+        set((s) => {
+          const scenes = s.current.storyScenes.map((sc) =>
+            sc.id === id ? { ...sc, content: createBlankContent() } : sc,
+          );
+          return { current: touch(mirrorActive({ ...s.current, storyScenes: scenes })) };
+        }),
 
       addAnchor: (instance) =>
         set((s) => ({ current: touch({ ...s.current, anchors: [...s.current.anchors, instance] }) })),

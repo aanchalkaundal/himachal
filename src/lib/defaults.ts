@@ -27,8 +27,9 @@ export function createStoryScene(
   content: NewsContent,
   templateId: TemplateId = "breaking-news",
   durationSeconds = 6,
+  media: StoryScene["media"] = {},
 ): StoryScene {
-  return { id: createId("scene"), name, templateId, durationSeconds, content };
+  return { id: createId("scene"), name, templateId, durationSeconds, content, media };
 }
 
 /**
@@ -66,17 +67,17 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
       watermark: "NEWS 24",
       primaryColor: "#e11d2a",
       secondaryColor: "#0b1f3a",
-      fontFamily: "Arial, Helvetica, sans-serif",
+      fontFamily: "Arial, Helvetica, 'Noto Sans Devanagari', 'Nirmala UI', 'Mangal', sans-serif",
     },
     ticker: {
       enabled: true,
-      label: "BREAKING NEWS",
+      label: "GROUND DETAILS",
       items: [
         "Live coverage continues throughout the day",
         "Stay tuned for the latest updates",
         "More details to follow shortly",
       ],
-      speed: 90,
+      speed: 220,
     },
     audio: {
       masterVolume: 1,
