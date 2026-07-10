@@ -88,11 +88,22 @@ function mirrorActive(p: NewsProject): NewsProject {
   return { ...p, content: active.content, settings: { ...p.settings, templateId: active.templateId } };
 }
 
-/** Immutably patch the ACTIVE scene's media and re-mirror. */
+/**
+ * Immutably patch the ACTIVE scene's media and re-mirror. When the scene has a
+ * background slideshow, the scene's duration is auto-set to the total of the
+ * slides' durations (so the video length always matches the media).
+ */
 function patchActiveMedia(p: NewsProject, fn: (m: SceneMedia) => SceneMedia): NewsProject {
-  const storyScenes = p.storyScenes.map((sc) =>
-    sc.id === p.activeSceneId ? { ...sc, media: fn(sc.media ?? {}) } : sc,
-  );
+  const storyScenes = p.storyScenes.map((sc) => {
+    if (sc.id !== p.activeSceneId) return sc;
+    const media = fn(sc.media ?? {});
+    const slides = media.backgroundSlides ?? [];
+    const durationSeconds =
+      slides.length > 0
+        ? Math.max(0.5, slides.reduce((sum, s) => sum + (Number(s.durationSeconds) || 0), 0))
+        : sc.durationSeconds;
+    return { ...sc, media, durationSeconds };
+  });
   return mirrorActive({ ...p, storyScenes });
 }
 
@@ -133,12 +144,18 @@ export function migrateProject(input: Partial<NewsProject>): NewsProject {
     input.storyScenes && input.storyScenes.length > 0
       ? input.storyScenes
       : [createStoryScene("Scene 1", merged.content, merged.settings.templateId, merged.scenes.headlineSeconds || 6, legacyBg)];
-  const scenes = rawScenes.map((sc, i) => ({
-    ...sc,
+  const scenes = rawScenes.map((sc, i) => {
     // Ensure every scene has its own media; give the first scene any legacy
     // project-level background if it has none of its own.
-    media: sc.media ?? (i === 0 ? legacyBg : {}),
-  }));
+    const media = sc.media ?? (i === 0 ? legacyBg : {});
+    const slides = media.backgroundSlides ?? [];
+    // Keep scene duration in sync with its slideshow total.
+    const durationSeconds =
+      slides.length > 0
+        ? Math.max(0.5, slides.reduce((sum, s) => sum + (Number(s.durationSeconds) || 0), 0))
+        : sc.durationSeconds;
+    return { ...sc, media, durationSeconds };
+  });
   merged.storyScenes = scenes;
   merged.activeSceneId =
     input.activeSceneId && scenes.some((s) => s.id === input.activeSceneId)

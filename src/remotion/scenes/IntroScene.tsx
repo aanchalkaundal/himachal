@@ -4,12 +4,14 @@ import type { SceneProps } from "./types";
 import { useZoomIn, useFadeIn, useBarGrow } from "@/remotion/animations/presets";
 
 /** Opening scene: animated logo/channel reveal with category + date. */
-export const IntroScene: React.FC<SceneProps> = ({ project, theme }) => {
+export const IntroScene: React.FC<SceneProps> = ({ project, scene, theme }) => {
   const logoAnim = useZoomIn({ delay: 2 });
   const nameFade = useFadeIn({ delay: 12, duration: 16 });
   const bar = useBarGrow({ delay: 18, duration: 16 });
   const catFade = useFadeIn({ delay: 24, duration: 16 });
   const { branding, content, media } = project;
+  // Category from the FIRST scene (this intro belongs to it), else project content.
+  const category = scene.data?.storyScene?.content.category || content.category;
 
   return (
     <AbsoluteFill
@@ -45,7 +47,7 @@ export const IntroScene: React.FC<SceneProps> = ({ project, theme }) => {
       </div>
       <div style={{ ...bar, height: 5, width: 220, background: theme.accent }} />
       <div style={{ ...catFade, color: "#cbd5e1", fontSize: 24, fontWeight: 600, letterSpacing: 4 }}>
-        {content.category}
+        {category}
       </div>
     </AbsoluteFill>
   );

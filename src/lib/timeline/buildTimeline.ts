@@ -32,11 +32,20 @@ export function buildTimeline(project: NewsProject): Timeline {
   // 1. Build the ordered scene list (durations only).
   const draft: Array<Pick<TimelineScene, "kind" | "durationInFrames" | "data">> = [];
 
+  const storyScenes = project.storyScenes ?? [];
+  const firstStory = storyScenes[0];
+  const lastStory = storyScenes[storyScenes.length - 1];
+
   if (sc.includeIntro) {
-    draft.push({ kind: "intro", durationInFrames: secToFrames(sc.introSeconds, fps) });
+    // Intro belongs to the FIRST scene: it carries the first scene's background +
+    // content so the opener flows straight into scene 1.
+    draft.push({
+      kind: "intro",
+      durationInFrames: secToFrames(sc.introSeconds, fps),
+      data: firstStory ? { storyScene: firstStory } : undefined,
+    });
   }
 
-  const storyScenes = project.storyScenes ?? [];
   if (storyScenes.length > 0) {
     // Story-timeline path: one scene per user-authored StoryScene, each with its
     // own template + content + duration. Rendered sequentially into one video.
@@ -61,7 +70,13 @@ export function buildTimeline(project: NewsProject): Timeline {
   }
 
   if (sc.includeOutro) {
-    draft.push({ kind: "outro", durationInFrames: secToFrames(sc.outroSeconds, fps) });
+    // Outro belongs to the LAST scene: it carries the last scene's background so
+    // the closer flows out of the final scene.
+    draft.push({
+      kind: "outro",
+      durationInFrames: secToFrames(sc.outroSeconds, fps),
+      data: lastStory ? { storyScene: lastStory } : undefined,
+    });
   }
 
   // Remotion requires every scene (Sequence) to be at least as long as an adjacent

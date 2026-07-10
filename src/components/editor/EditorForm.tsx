@@ -48,6 +48,10 @@ export function EditorForm() {
 
   const activeScene = p.storyScenes.find((sc) => sc.id === p.activeSceneId) ?? p.storyScenes[0];
   const sceneNumber = p.storyScenes.findIndex((sc) => sc.id === activeScene?.id) + 1;
+  // When the scene has a background slideshow, its duration is the sum of the
+  // slides' durations (auto) and the manual field is locked.
+  const sceneSlideCount = activeScene?.media?.backgroundSlides?.length ?? 0;
+  const durationAuto = sceneSlideCount > 0;
 
   return (
     <div className="scrollable space-y-1 pr-2 lg:h-full lg:overflow-y-auto">
@@ -93,12 +97,14 @@ export function EditorForm() {
           <Field label="Scene name">
             <Input value={activeScene?.name ?? ""} onChange={(e) => updateSceneMeta({ name: e.target.value })} />
           </Field>
-          <Field label="Duration (s)">
+          <Field label={durationAuto ? "Duration (auto from slideshow)" : "Duration (s)"}>
             <Input
               type="number"
               min={0.5}
               step={0.5}
               value={activeScene?.durationSeconds ?? 6}
+              disabled={durationAuto}
+              title={durationAuto ? "Auto-calculated from the slideshow items' total duration" : undefined}
               onChange={(e) => updateSceneMeta({ durationSeconds: num(e.target.value, 0.5) })}
             />
           </Field>
@@ -211,7 +217,7 @@ export function EditorForm() {
               checked={p.scenes.includeIntro}
               onChange={(e) => updateScenes({ includeIntro: e.target.checked })}
             />
-            Intro scene
+            Intro (before first scene)
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input
@@ -219,7 +225,7 @@ export function EditorForm() {
               checked={p.scenes.includeOutro}
               onChange={(e) => updateScenes({ includeOutro: e.target.checked })}
             />
-            Outro scene
+            Outro (after last scene)
           </label>
         </div>
         <p className="text-xs text-slate-500">
