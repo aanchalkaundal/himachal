@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { useProjectStore } from "@/lib/store/projectStore";
 import { fileToDataUrl } from "@/lib/file";
+import { removeGreenScreen } from "@/lib/chromaKey";
 import { createId } from "@/lib/defaults";
 import { assetManager } from "@/lib/assets/assetManager";
 import { Button } from "@/components/ui/primitives";
@@ -101,11 +102,33 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
   }
 
   function handleRemove() {
-    assetManager.release(slide.src);
+    assetManager.release(slide.rawSrc ?? slide.src);
     remove(slide.id);
   }
 
   const isVideo = slide.kind === "video";
+  const [keying, setKeying] = useState(false);
+
+  async function toggleGreenScreen(on: boolean) {
+    // Video: keyed live at render via an SVG chroma-key filter (no baking).
+    if (isVideo) {
+      update(slide.id, { chromaKey: on });
+      return;
+    }
+    // Image: bake transparency into a new PNG so it's instant and portable.
+    if (on) {
+      setKeying(true);
+      try {
+        const raw = slide.rawSrc ?? slide.src;
+        const keyed = await removeGreenScreen(raw);
+        update(slide.id, { chromaKey: true, rawSrc: raw, src: keyed });
+      } finally {
+        setKeying(false);
+      }
+    } else {
+      update(slide.id, { chromaKey: false, src: slide.rawSrc ?? slide.src });
+    }
+  }
 
   return (
     <div className="rounded-md border border-surface-border bg-surface-raised p-3">
@@ -187,6 +210,21 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
               onChange={(e) => update(slide.id, { zoomSpeed: Number(e.target.value) })}
               className="mt-1 w-full accent-accent"
             />
+          </label>
+
+          {/* Green screen removal (images baked, videos keyed live at render) */}
+          <label className="flex items-center gap-2 text-[11px] text-slate-300">
+            <input
+              type="checkbox"
+              checked={!!slide.chromaKey}
+              disabled={keying}
+              onChange={(e) => toggleGreenScreen(e.target.checked)}
+            />
+            <span>
+              Remove green screen
+              {keying ? " — processing…" : slide.chromaKey ? " ✓" : ""}
+              {isVideo ? <span className="text-slate-600"> (live)</span> : null}
+            </span>
           </label>
         </div>
       </div>

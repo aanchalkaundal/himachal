@@ -50,6 +50,7 @@ export function resolveAnchorState(animation: AnchorAnimationId, frame: number, 
     mouthOpen: 0,
     eyesOpen,
     browRaise: 0,
+    browAngle: 0,
     smile: 0.1,
     armAngle: 0,
     sway,
@@ -57,6 +58,8 @@ export function resolveAnchorState(animation: AnchorAnimationId, frame: number, 
   };
 
   const talk = talkMouth(frame);
+  // Gentle breathing motion (secs), reused by the emotion presets.
+  const breathe = Math.sin((frame / fps) * TAU * 0.3);
 
   switch (animation) {
     case "idle":
@@ -82,6 +85,37 @@ export function resolveAnchorState(animation: AnchorAnimationId, frame: number, 
       return { ...base, nod: Math.sin((frame / fps) * TAU * 0.4) * 3, browRaise: 0.2 };
     case "serious":
       return { ...base, browRaise: -0.5, smile: 0 };
+
+    // ----- Emotions -----
+    case "happy":
+      return { ...base, smile: 0.95, browRaise: 0.15, nod: breathe * 2 };
+    case "sad":
+      return {
+        ...base,
+        smile: -0.6,
+        browRaise: 0.1,
+        browAngle: 11, // inner-up
+        eyesOpen: eyesOpen * 0.8, // slightly downcast
+        nod: 3 + breathe * 1.5, // head a touch lowered
+      };
+    case "angry":
+      return {
+        ...base,
+        smile: -0.45,
+        browRaise: -0.5,
+        browAngle: -12, // inner-down furrow
+        mouthOpen: 0.12,
+        sway: sway * 1.4,
+      };
+    case "surprised":
+      return { ...base, browRaise: 0.95, mouthOpen: 0.7, eyesOpen: 1, smile: 0.1 };
+
+    // ----- Extra gestures -----
+    case "raise-hand":
+      return { ...base, armAngle: 150 + Math.sin(frame * 0.4) * 8, browRaise: 0.2 };
+    case "welcome":
+      return { ...base, armAngle: 90 + Math.sin((frame / fps) * TAU * 0.5) * 12, smile: 0.7 };
+
     case "intro":
       return { ...base, mouthOpen: talk, armAngle: 100 + Math.sin(frame * 0.5) * 20, smile: 0.7 };
     case "outro":

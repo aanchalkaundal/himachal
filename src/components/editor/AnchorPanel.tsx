@@ -7,6 +7,7 @@ import { listAnchorMetadata, getAnchorEntry } from "@/anchors/registry";
 import { ensureAnchorLoaded, unloadUnusedAnchors } from "@/anchors/registry/cache";
 import { createAnchorInstance } from "@/anchors/factory";
 import type { AnchorInstance, AnchorPositionId, AnchorLayerId, AnchorTransition, AnchorAnimationId } from "@/anchors/types";
+import { ANCHOR_ANIMATIONS } from "@/anchors/types";
 
 const POSITIONS: AnchorPositionId[] = [
   "bottom-left",
@@ -82,7 +83,9 @@ function AnchorRow({ instance, index, total }: { instance: AnchorInstance; index
   const [open, setOpen] = useState(true);
 
   const meta = getAnchorEntry(instance.anchorId)?.metadata;
-  const animations: (AnchorAnimationId | "auto")[] = ["auto", ...(meta?.animationPresets ?? [])];
+  // Offer every preset (emotions + gestures work on the shared rig), not just the
+  // anchor's suggested subset, so all emotions are available for any anchor.
+  const animations: (AnchorAnimationId | "auto")[] = ["auto", ...ANCHOR_ANIMATIONS];
   const up = (patch: Partial<AnchorInstance>) => updateAnchor(instance.instanceId, patch);
 
   return (

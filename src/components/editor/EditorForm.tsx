@@ -41,6 +41,7 @@ export function EditorForm() {
   const updateMedia = useProjectStore((s) => s.updateMedia);
   const updateSceneMedia = useProjectStore((s) => s.updateSceneMedia);
   const updateAudio = useProjectStore((s) => s.updateAudio);
+  const updateSocial = useProjectStore((s) => s.updateSocial);
   const updateScenes = useProjectStore((s) => s.updateScenes);
   const updateSettings = useProjectStore((s) => s.updateSettings);
   const setName = useProjectStore((s) => s.setName);
@@ -326,6 +327,65 @@ export function EditorForm() {
             onChange={(e) => updateAudio({ fadeOutSeconds: num(e.target.value, 0) })}
           />
         </Field>
+      </div>
+
+      {/* ---------- Social channels ---------- */}
+      <SectionTitle>Social Channels</SectionTitle>
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          <input
+            type="checkbox"
+            checked={p.social.enabled}
+            onChange={(e) => updateSocial({ enabled: e.target.checked })}
+          />
+          Show my social handles in the video
+        </label>
+        <p className="text-[11px] text-slate-500">
+          Only filled handles appear. They show at the time you choose (not auto-posting).
+        </p>
+        <div className="space-y-2">
+          <Field label="YouTube">
+            <Input placeholder="@yourchannel" value={p.social.youtube} onChange={(e) => updateSocial({ youtube: e.target.value })} />
+          </Field>
+          <Field label="Instagram">
+            <Input placeholder="@yourhandle" value={p.social.instagram} onChange={(e) => updateSocial({ instagram: e.target.value })} />
+          </Field>
+          <Field label="Facebook">
+            <Input placeholder="Your Page" value={p.social.facebook} onChange={(e) => updateSocial({ facebook: e.target.value })} />
+          </Field>
+          <Field label="X (Twitter)">
+            <Input placeholder="@yourhandle" value={p.social.x} onChange={(e) => updateSocial({ x: e.target.value })} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Show at (s)">
+            <Input
+              type="number"
+              min={0}
+              step={0.5}
+              value={p.social.showAtSeconds}
+              onChange={(e) => updateSocial({ showAtSeconds: num(e.target.value, 0) })}
+            />
+          </Field>
+          <Field label="Duration (s)">
+            <Input
+              type="number"
+              min={0.5}
+              step={0.5}
+              value={p.social.durationSeconds}
+              onChange={(e) => updateSocial({ durationSeconds: num(e.target.value, 0.5) })}
+            />
+          </Field>
+          <Field label="Position">
+            <Select
+              value={p.social.position}
+              onChange={(e) => updateSocial({ position: e.target.value as "top" | "bottom" })}
+            >
+              <option value="bottom">Bottom</option>
+              <option value="top">Top</option>
+            </Select>
+          </Field>
+        </div>
       </div>
 
       {/* ---------- Output ---------- */}

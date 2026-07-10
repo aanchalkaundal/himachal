@@ -43,7 +43,42 @@ export type AnchorAnimationId =
   | "serious"
   | "breaking"
   | "intro"
-  | "outro";
+  | "outro"
+  // Emotions
+  | "happy"
+  | "sad"
+  | "angry"
+  | "surprised"
+  // Extra gestures
+  | "raise-hand"
+  | "welcome";
+
+/** Every animation preset, grouped for the editor's dropdown. Works on the shared
+ * rig, so any anchor can use any preset. */
+export const ANCHOR_ANIMATIONS: AnchorAnimationId[] = [
+  "idle",
+  "talking",
+  "reading",
+  "listening",
+  "serious",
+  "breaking",
+  "blink",
+  "head-nod",
+  // emotions
+  "happy",
+  "sad",
+  "angry",
+  "surprised",
+  "smile",
+  // gestures
+  "hand-gesture",
+  "wave",
+  "point",
+  "raise-hand",
+  "welcome",
+  "intro",
+  "outro",
+];
 
 /** Entry/exit transitions for an anchor within a scene. */
 export type AnchorTransition = "none" | "fade" | "slide-up" | "slide-left" | "slide-right" | "scale";
@@ -84,9 +119,11 @@ export interface AnchorRenderState {
   mouthOpen: number;
   /** 1 = eyes open, 0 = blink. */
   eyesOpen: number;
-  /** -1..1 eyebrow raise. */
+  /** -1..1 eyebrow raise (up/down). */
   browRaise: number;
-  /** 0..1 smile. */
+  /** Eyebrow inner-tilt in degrees: +sad (inner up), -angry (inner down). */
+  browAngle: number;
+  /** -1..1 mouth curve: +smile, -frown. */
   smile: number;
   /** Right-arm angle in degrees (gesture/wave/point). */
   armAngle: number;

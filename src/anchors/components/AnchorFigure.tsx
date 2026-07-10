@@ -31,8 +31,10 @@ export const AnchorFigure: React.FC<AnchorFigureProps> = ({ state, colors, attir
 
   const lid = (1 - state.eyesOpen) * 11; // eyelid drop
   const browY = 128 - state.browRaise * 7;
+  const browAngle = state.browAngle ?? 0; // inner-tilt for sad/angry
+  const browPivotY = browY + 3.5;
   const mouthH = 3 + state.mouthOpen * 17;
-  const smileDip = state.smile * 7;
+  const smileDip = state.smile * 7; // negative = frown
   const headShift = state.sway * 0.5;
   const armDeg = state.armAngle;
 
@@ -75,9 +77,25 @@ export const AnchorFigure: React.FC<AnchorFigureProps> = ({ state, colors, attir
           </g>
         ) : null}
 
-        {/* Eyebrows */}
-        <rect x="98" y={browY} width="44" height="7" rx="3.5" fill={hair} />
-        <rect x="158" y={browY} width="44" height="7" rx="3.5" fill={hair} />
+        {/* Eyebrows — inner ends tilt for emotion (sad = inner up, angry = down) */}
+        <rect
+          x="98"
+          y={browY}
+          width="44"
+          height="7"
+          rx="3.5"
+          fill={hair}
+          transform={`rotate(${browAngle} 142 ${browPivotY})`}
+        />
+        <rect
+          x="158"
+          y={browY}
+          width="44"
+          height="7"
+          rx="3.5"
+          fill={hair}
+          transform={`rotate(${-browAngle} 158 ${browPivotY})`}
+        />
 
         {/* Eyes */}
         <g>

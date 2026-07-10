@@ -70,7 +70,17 @@ const SlideShow: React.FC<{ slides: BackgroundSlide[] }> = ({ slides }) => {
               }}
             >
               {slide.kind === "video" ? (
-                <OffthreadVideo src={slide.src} muted style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+                <OffthreadVideo
+                  src={slide.src}
+                  muted
+                  style={{
+                    objectFit: "cover",
+                    width: "100%",
+                    height: "100%",
+                    // Live green-screen removal for video via the SVG chroma-key filter.
+                    filter: slide.chromaKey ? "url(#nvg-greenscreen)" : undefined,
+                  }}
+                />
               ) : (
                 <Img src={slide.src} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
               )}
@@ -96,6 +106,10 @@ export const Background: React.FC<BackgroundProps> = ({ media, from, to, scrim =
 
   return (
     <AbsoluteFill>
+      {/* Themed gradient base — always present so green-screen-removed (transparent)
+          media composites over the gradient instead of black. */}
+      <AbsoluteFill style={{ background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` }} />
+
       {media.backgroundVideo ? (
         <OffthreadVideo src={media.backgroundVideo} muted style={{ objectFit: "cover", width: "100%", height: "100%" }} />
       ) : slides.length > 0 ? (
@@ -104,9 +118,8 @@ export const Background: React.FC<BackgroundProps> = ({ media, from, to, scrim =
         <AbsoluteFill style={ken}>
           <Img src={media.backgroundImage} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
         </AbsoluteFill>
-      ) : (
-        <AbsoluteFill style={{ background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` }} />
-      )}
+      ) : null}
+
       <AbsoluteFill style={{ background: `rgba(0,0,0,${scrim})` }} />
     </AbsoluteFill>
   );

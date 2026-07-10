@@ -15,6 +15,7 @@ import type {
   BackgroundSlide,
   StoryScene,
   SceneMedia,
+  SocialConfig,
 } from "@/types/project";
 import { PROJECT_VERSION } from "@/types/project";
 import type { AnchorInstance } from "@/anchors/types";
@@ -44,6 +45,7 @@ interface ProjectState {
   reorderBackgroundSlide: (id: string, direction: -1 | 1) => void;
 
   updateAudio: (patch: Partial<AudioSettings>) => void;
+  updateSocial: (patch: Partial<SocialConfig>) => void;
   updateScenes: (patch: Partial<SceneConfig>) => void;
   updateSettings: (patch: Partial<VideoSettings>) => void;
   setTickerItems: (items: string[]) => void;
@@ -110,6 +112,7 @@ export function migrateProject(input: Partial<NewsProject>): NewsProject {
     branding: { ...d.branding, ...input.branding },
     ticker: { ...d.ticker, ...input.ticker },
     audio: { ...d.audio, ...input.audio },
+    social: { ...d.social, ...input.social },
     scenes: { ...d.scenes, ...input.scenes },
     anchors: input.anchors ?? d.anchors,
     settings: { ...d.settings, ...input.settings },
@@ -206,6 +209,8 @@ export const useProjectStore = create<ProjectState>()(
         }),
       updateAudio: (patch) =>
         set((s) => ({ current: touch({ ...s.current, audio: { ...s.current.audio, ...patch } }) })),
+      updateSocial: (patch) =>
+        set((s) => ({ current: touch({ ...s.current, social: { ...s.current.social, ...patch } }) })),
       updateScenes: (patch) =>
         set((s) => ({ current: touch({ ...s.current, scenes: { ...s.current.scenes, ...patch } }) })),
       updateSettings: (patch) =>

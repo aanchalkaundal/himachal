@@ -1125,6 +1125,13 @@ anchors).
 > git commits yet**, so this is the authoritative history until git history exists.
 
 ### 2026-07-10
+- **Anchor Studio — emotions + gestures:** added deterministic emotion presets
+  (`happy`, `sad`, `angry`, `surprised`) and gestures (`raise-hand`, `welcome`) to the
+  anchor engine. `AnchorRenderState` gained `browAngle` (eyebrow inner-tilt) and `smile`
+  now ranges −1..1 (frown), so the shared SVG rig shows real expressions. The editor's
+  anchor Animation dropdown now offers **all** presets (via `ANCHOR_ANIMATIONS`) for any
+  anchor. Still fully deterministic/no-AI (no real lip-sync/walking/multi-camera — those
+  conflict with the core rule and were scoped out).
 - **Fixed `localStorage` quota crash → IndexedDB persistence:** saving projects with
   several images/videos overflowed `localStorage`'s ~5 MB limit ("exceeded the quota"),
   which also blocked export (export saves first). Persistence moved to **IndexedDB** via

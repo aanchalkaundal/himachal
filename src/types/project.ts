@@ -49,8 +49,12 @@ export interface BackgroundSlide {
   id: string;
   /** "image" (default) or "video". */
   kind?: "image" | "video";
-  /** Image or video data/object URL. */
+  /** Image or video data/object URL (green-screen-removed version when `chromaKey`). */
   src: string;
+  /** Whether the green screen has been removed (images only). */
+  chromaKey?: boolean;
+  /** Original (un-keyed) source, kept so chroma key can be toggled off. */
+  rawSrc?: string;
   /** How long this image stays on screen, in seconds. */
   durationSeconds: number;
   /** Zoom focal point as viewport percentages (0..100). The image scales toward here. */
@@ -132,6 +136,25 @@ export interface TickerConfig {
   speed: number;
 }
 
+/**
+ * Social channel handles shown as an on-screen overlay at a chosen time — NOT
+ * auto-posting. Only non-empty handles render. `showAtSeconds`/`durationSeconds`
+ * place the overlay on the master timeline.
+ */
+export interface SocialConfig {
+  enabled: boolean;
+  youtube: string;
+  instagram: string;
+  facebook: string;
+  x: string;
+  /** When the overlay appears, in seconds from the start of the video. */
+  showAtSeconds: number;
+  /** How long the overlay stays on screen, in seconds. */
+  durationSeconds: number;
+  /** Where it sits vertically. */
+  position: "top" | "bottom";
+}
+
 /** Audio mixing settings. Volumes are 0..1; fades are in seconds. */
 export interface AudioSettings {
   masterVolume: number;
@@ -182,6 +205,8 @@ export interface NewsProject {
   branding: Branding;
   ticker: TickerConfig;
   audio: AudioSettings;
+  /** On-screen social channel handles (shown at a chosen time; not auto-posting). */
+  social: SocialConfig;
   scenes: SceneConfig;
   /**
    * The story timeline: an ordered list of user-authored scenes rendered
@@ -198,7 +223,7 @@ export interface NewsProject {
 }
 
 /** Current project schema version. */
-export const PROJECT_VERSION = 6;
+export const PROJECT_VERSION = 7;
 
 /**
  * Base long/short edge (px) per resolution, on a 16:9 grid. Actual width/height

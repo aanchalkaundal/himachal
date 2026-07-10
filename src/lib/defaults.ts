@@ -83,6 +83,16 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
       fadeInSeconds: 1,
       fadeOutSeconds: 1.5,
     },
+    social: {
+      enabled: false,
+      youtube: "",
+      instagram: "",
+      facebook: "",
+      x: "",
+      showAtSeconds: 3,
+      durationSeconds: 4,
+      position: "bottom",
+    },
     anchors: [],
     scenes: {
       includeIntro: false,
