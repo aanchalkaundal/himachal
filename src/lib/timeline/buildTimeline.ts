@@ -64,6 +64,15 @@ export function buildTimeline(project: NewsProject): Timeline {
     draft.push({ kind: "outro", durationInFrames: secToFrames(sc.outroSeconds, fps) });
   }
 
+  // Remotion requires every scene (Sequence) to be at least as long as an adjacent
+  // transition, otherwise <TransitionSeries> throws. Clamp each scene up to the
+  // transition length so a short scene/duration can never crash the timeline.
+  if (transitionFrames > 0) {
+    draft.forEach((d) => {
+      d.durationInFrames = Math.max(d.durationInFrames, transitionFrames);
+    });
+  }
+
   // 2. Assign absolute frames, accounting for transition overlaps.
   const scenes: TimelineScene[] = [];
   const transitions: TimelineTransition[] = [];

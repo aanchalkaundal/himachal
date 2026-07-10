@@ -69,7 +69,11 @@ const SlideShow: React.FC<{ slides: BackgroundSlide[] }> = ({ slides }) => {
                 transformOrigin: `${slide.focalX}% ${slide.focalY}%`,
               }}
             >
-              <Img src={slide.src} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+              {slide.kind === "video" ? (
+                <OffthreadVideo src={slide.src} muted style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+              ) : (
+                <Img src={slide.src} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+              )}
             </AbsoluteFill>
           </AbsoluteFill>
         );

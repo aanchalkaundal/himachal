@@ -47,7 +47,9 @@ export interface NewsContent {
  */
 export interface BackgroundSlide {
   id: string;
-  /** Image data/object URL. */
+  /** "image" (default) or "video". */
+  kind?: "image" | "video";
+  /** Image or video data/object URL. */
   src: string;
   /** How long this image stays on screen, in seconds. */
   durationSeconds: number;

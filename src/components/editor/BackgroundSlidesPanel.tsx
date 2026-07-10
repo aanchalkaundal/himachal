@@ -30,16 +30,20 @@ export function BackgroundSlidesPanel() {
   async function handleAdd(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     for (const file of files) {
-      if (!file.type.startsWith("image/")) continue;
+      const isVideo = file.type.startsWith("video/");
+      const isImage = file.type.startsWith("image/");
+      if (!isVideo && !isImage) continue;
       const dataUrl = await fileToDataUrl(file);
-      const src = assetManager.register("image", dataUrl, file.name);
+      const src = assetManager.register(isVideo ? "video" : "image", dataUrl, file.name);
       const slide: BackgroundSlide = {
         id: createId("slide"),
+        kind: isVideo ? "video" : "image",
         src,
-        durationSeconds: 4,
+        durationSeconds: isVideo ? 6 : 4,
         focalX: 50,
         focalY: 50,
-        zoomSpeed: 8,
+        // Zoom is optional for video → default off (0); images get a gentle push.
+        zoomSpeed: isVideo ? 0 : 8,
       };
       addBackgroundSlide(slide);
     }
@@ -57,13 +61,14 @@ export function BackgroundSlidesPanel() {
             Background Slideshow · this scene
           </span>
           <p className="mt-0.5 text-[11px] text-slate-500">
-            Images for the selected scene only — each with its own duration, zoom point and speed.
-            {slides.length > 0 ? ` · ${slides.length} image${slides.length > 1 ? "s" : ""} · ${totalSeconds.toFixed(1)}s loop` : ""}
+            Images &amp; videos for the selected scene — each with its own duration; zoom point/speed
+            (zoom is optional for videos).
+            {slides.length > 0 ? ` · ${slides.length} item${slides.length > 1 ? "s" : ""} · ${totalSeconds.toFixed(1)}s total` : ""}
           </p>
         </div>
-        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAdd} />
+        <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleAdd} />
         <Button variant="outline" onClick={() => fileRef.current?.click()}>
-          ＋ Add images
+          ＋ Add media
         </Button>
       </div>
 
@@ -100,23 +105,34 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
     remove(slide.id);
   }
 
+  const isVideo = slide.kind === "video";
+
   return (
     <div className="rounded-md border border-surface-border bg-surface-raised p-3">
       <div className="flex gap-3">
-        {/* Focal-point picker: click the image to aim the zoom. */}
+        {/* Focal-point picker: click the media to aim the zoom. */}
         <div className="shrink-0">
           <div
-            className="relative h-24 w-40 cursor-crosshair overflow-hidden rounded"
+            className="relative h-24 w-40 cursor-crosshair overflow-hidden rounded bg-black"
             onClick={pickFocal}
             title="Click to set the zoom focal point"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={slide.src} alt={`Slide ${index + 1}`} className="h-full w-full object-cover" />
+            {isVideo ? (
+              <video src={slide.src} muted playsInline className="h-full w-full object-cover" />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={slide.src} alt={`Slide ${index + 1}`} className="h-full w-full object-cover" />
+            )}
             {/* Crosshair marker at the focal point */}
             <div
               className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
               style={{ left: `${slide.focalX}%`, top: `${slide.focalY}%`, boxShadow: "0 0 0 1px rgba(0,0,0,0.6)" }}
             />
+            {isVideo ? (
+              <span className="absolute left-1 top-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">
+                ▶ VIDEO
+              </span>
+            ) : null}
           </div>
           <div className="mt-1 text-center text-[10px] text-slate-500">
             focus {slide.focalX}%, {slide.focalY}% — click to move
@@ -126,7 +142,9 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
         {/* Controls */}
         <div className="flex-1 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-300">Image {index + 1}</span>
+            <span className="text-xs font-semibold text-slate-300">
+              {isVideo ? "Video" : "Image"} {index + 1}
+            </span>
             <div className="flex items-center gap-1">
               <IconBtn label="Move up" disabled={index === 0} onClick={() => reorder(slide.id, -1)}>↑</IconBtn>
               <IconBtn label="Move down" disabled={index === count - 1} onClick={() => reorder(slide.id, 1)}>↓</IconBtn>
@@ -152,10 +170,10 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
             />
           </label>
 
-          {/* Zoom speed */}
+          {/* Zoom speed (optional for videos) */}
           <label className="block">
             <span className="flex items-center justify-between text-[11px] text-slate-400">
-              <span>Zoom speed</span>
+              <span>Zoom speed{isVideo ? " (optional)" : ""}</span>
               <span className="text-slate-500">
                 {slide.zoomSpeed === 0 ? "none" : `${slide.zoomSpeed > 0 ? "in" : "out"} · ${Math.abs(slide.zoomSpeed)}%/s`}
               </span>
