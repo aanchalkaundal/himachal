@@ -26,8 +26,8 @@ export const NewsTicker: React.FC<NewsTickerProps> = ({ ticker, accent, bottom =
   // description gets cut off after ~2×width and never fully scrolls. We estimate
   // the rendered text width (generously, so copies never overlap) and place a
   // second copy exactly one period later for a seamless wrap.
-  const GAP = 120;
-  const CHAR_W = 14; // generous avg px/char at 24px bold
+  const GAP = 140;
+  const CHAR_W = 19; // generous avg px/char at the larger 34px text
   const contentWidth = Math.max(width, message.length * CHAR_W);
   const period = contentWidth + GAP;
   const distance = (ticker.speed * seconds) % period;
@@ -39,10 +39,10 @@ export const NewsTicker: React.FC<NewsTickerProps> = ({ ticker, accent, bottom =
         left: 0,
         right: 0,
         bottom,
-        height: 64,
+        height: 96,
         display: "flex",
         alignItems: "stretch",
-        background: "rgba(8,12,20,0.92)",
+        background: "rgba(8,12,20,0.94)",
         fontFamily: "Arial, Helvetica, sans-serif",
       }}
     >
@@ -50,15 +50,15 @@ export const NewsTicker: React.FC<NewsTickerProps> = ({ ticker, accent, bottom =
         style={{
           background: accent,
           color: "#fff",
-          fontWeight: 800,
-          fontSize: 22,
-          letterSpacing: 1,
+          fontWeight: 900,
+          fontSize: 32,
+          letterSpacing: 1.5,
           display: "flex",
           alignItems: "center",
-          padding: "0 24px",
+          padding: "0 32px",
           whiteSpace: "nowrap",
-          clipPath: "polygon(0 0, 100% 0, calc(100% - 18px) 100%, 0 100%)",
-          paddingRight: 42,
+          clipPath: "polygon(0 0, 100% 0, calc(100% - 24px) 100%, 0 100%)",
+          paddingRight: 56,
         }}
       >
         {ticker.label}
@@ -67,10 +67,10 @@ export const NewsTicker: React.FC<NewsTickerProps> = ({ ticker, accent, bottom =
         <div
           style={{
             position: "relative",
-            height: 24,
+            height: 40,
             color: "#fff",
-            fontSize: 24,
-            fontWeight: 600,
+            fontSize: 34,
+            fontWeight: 700,
             transform: `translateX(${width - distance}px)`,
           }}
         >

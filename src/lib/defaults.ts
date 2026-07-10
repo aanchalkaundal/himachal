@@ -7,17 +7,18 @@ export function createId(prefix = "proj"): string {
 }
 
 /** Empty content for a brand-new, blank scene the user then fills in. */
-export function createBlankContent(now: string = new Date().toISOString()): NewsContent {
-  const d = new Date(now);
+export function createBlankContent(_now: string = new Date().toISOString()): NewsContent {
+  // Category/reporter/location/date/time are no longer edited in the UI, so keep
+  // them empty — templates hide/omit them when blank.
   return {
     headline: "",
     subtitle: "",
     description: "",
-    category: "GENERAL",
+    category: "",
     reporter: "",
     location: "",
-    date: now.slice(0, 10),
-    time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+    date: "",
+    time: "",
   };
 }
 
@@ -37,19 +38,16 @@ export function createStoryScene(
  * live preview looks like a real news bulletin the moment the editor opens.
  */
 export function createDefaultProject(now: string = new Date().toISOString()): NewsProject {
-  const dateObj = new Date(now);
   const content: NewsContent = {
     headline: "Breaking: Major Development Unfolds Across the Region",
     subtitle: "Officials respond as the situation develops",
     description:
       "Authorities have issued a statement following today's events. Our correspondent brings the latest updates from the ground as more details emerge.",
-    category: "GENERAL",
-    reporter: "A. Reporter",
-    location: "New Delhi",
-    date: now.slice(0, 10),
-    time: `${String(dateObj.getHours()).padStart(2, "0")}:${String(
-      dateObj.getMinutes(),
-    ).padStart(2, "0")}`,
+    category: "",
+    reporter: "",
+    location: "",
+    date: "",
+    time: "",
   };
   const scene1 = createStoryScene("Scene 1", content, "breaking-news", 6);
   return {
@@ -77,7 +75,7 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
         "Stay tuned for the latest updates",
         "More details to follow shortly",
       ],
-      speed: 220,
+      speed: 150,
     },
     audio: {
       masterVolume: 1,

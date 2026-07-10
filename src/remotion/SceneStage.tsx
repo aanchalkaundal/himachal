@@ -5,7 +5,18 @@ import type { TimelineScene } from "@/lib/timeline/types";
 import type { Theme } from "@/remotion/theme";
 import { SCENE_REGISTRY } from "@/remotion/scenes/registry";
 import { Background } from "@/remotion/components/Background";
+import { NewsTicker } from "@/remotion/components/NewsTicker";
 import { AnchorLayer } from "@/anchors/components/AnchorLayer";
+
+/** Split a scene's description into ticker lines (blank lines / sentence ends). */
+function descriptionToItems(description?: string): string[] {
+  const d = description?.trim();
+  if (!d) return [];
+  return d
+    .split(/\n+|(?<=[.!?])\s+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
 
 /**
  * Composes one scene together with its anchors in correct z-order:
@@ -39,6 +50,13 @@ export const SceneStage: React.FC<{ project: NewsProject; scene: TimelineScene; 
       }
     : project.media;
 
+  // Per-scene ticker: scrolls THIS scene's own description (falls back to the
+  // project ticker items when the scene has no description). Frame is local to
+  // the scene's Sequence, so each scene's ticker starts fresh with its own text.
+  const descItems = descriptionToItems(scene.data?.storyScene?.content.description);
+  const items = descItems.length > 0 ? descItems : project.ticker.items;
+  const sceneTicker = { ...project.ticker, items };
+
   return (
     <AbsoluteFill>
       <Background media={media} from={theme.from} to={theme.to} scrim={theme.scrim} />
@@ -50,6 +68,8 @@ export const SceneStage: React.FC<{ project: NewsProject; scene: TimelineScene; 
       <AnchorLayer layer="middle" anchors={anchors} scene={scene} />
       <AnchorLayer layer="front" anchors={anchors} scene={scene} />
       <AnchorLayer layer="overlay" anchors={anchors} scene={scene} />
+
+      <NewsTicker ticker={sceneTicker} accent={theme.accent} />
     </AbsoluteFill>
   );
 };

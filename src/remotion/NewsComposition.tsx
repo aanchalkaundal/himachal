@@ -10,7 +10,6 @@ import type { TransitionType } from "@/lib/timeline/types";
 import { buildTimeline } from "@/lib/timeline/buildTimeline";
 import { getTheme } from "@/remotion/theme";
 import { SceneStage } from "@/remotion/SceneStage";
-import { NewsTicker } from "@/remotion/components/NewsTicker";
 import { LogoBadge } from "@/remotion/components/LogoBadge";
 import { Watermark } from "@/remotion/components/Watermark";
 import { AudioLayer } from "@/remotion/components/AudioLayer";
@@ -49,21 +48,6 @@ export const NewsComposition: React.FC<{ project: NewsProject }> = ({ project })
   const introScene = timeline.scenes.find((s) => s.kind === "intro");
   const outroScene = timeline.scenes.find((s) => s.kind === "outro");
 
-  // The ticker scrolls the scenes' description text (split into sentences), so
-  // "GROUND DETAILS" always reflects what the story is about. If no description
-  // is written, fall back to the manually-typed ticker items.
-  const descriptionItems = (project.storyScenes ?? [])
-    .map((s) => s.content.description?.trim())
-    .filter((d): d is string => Boolean(d))
-    .flatMap((d) =>
-      d
-        .split(/\n+|(?<=[.!?])\s+/)
-        .map((x) => x.trim())
-        .filter(Boolean),
-    );
-  const ticker =
-    descriptionItems.length > 0 ? { ...project.ticker, items: descriptionItems } : project.ticker;
-
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       {/* 1. Scene timeline — each scene renders its OWN background (per-scene media). */}
@@ -87,10 +71,9 @@ export const NewsComposition: React.FC<{ project: NewsProject }> = ({ project })
         })}
       </TransitionSeries>
 
-      {/* 3. Persistent overlays */}
+      {/* 3. Persistent overlays (ticker is now per-scene, inside SceneStage) */}
       <LogoBadge logo={project.media.logo} channelName={project.branding.channelName} accent={theme.accent} />
-      <Watermark text={project.branding.watermark} />
-      <NewsTicker ticker={ticker} accent={theme.accent} />
+      <Watermark text={project.branding.watermark} bottom={116} />
 
       {/* 4. Audio */}
       <AudioLayer

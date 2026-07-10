@@ -485,11 +485,11 @@ per-scene backgrounds) is stored inline as data URLs so a saved project reloads 
 
 Persistence is two-tier:
 
-### 6.1 Client persistence — `localStorage`
+### 6.1 Client persistence — `IndexedDB` (was `localStorage`)
 
-| Store key | Shape | Written by | Notes |
-|---|---|---|---|
-| `nvg-store-v2` | `{ saved: NewsProject[] }` | Zustand `persist` (`partialize` keeps only `saved`) | `version = PROJECT_VERSION (3)`; `migrate()` runs each entry through `migrateProject()`. Media inlined as data URLs. |
+| Store | Key | Shape | Written by | Notes |
+|---|---|---|---|---|
+| IndexedDB `nvg-db` / `keyval` | `nvg-store-v2` | `{ saved: NewsProject[] }` | Zustand `persist` via [`idbStorage`](src/lib/store/idbStorage.ts) (`partialize` keeps only `saved`) | `version = PROJECT_VERSION (6)`; `migrate()` runs each entry through `migrateProject()`. Media inlined as data URLs. **IndexedDB** is used (not `localStorage`) so large media libraries don't hit the ~5 MB quota; `idbStorage` migrates any old `localStorage` copy and falls back gracefully (never throws to the UI). |
 
 The closest thing to a "table" is the `NewsProject` document. Its ER-style relationships:
 
@@ -679,8 +679,10 @@ Dependency-free atoms styled with Tailwind.
 
 | Component | Props | Purpose |
 |---|---|---|
-| `Editor` | — | Two-pane shell; save/export orchestration; dynamic `PreviewPlayer`. |
-| `EditorForm` | — | All editing controls; each patches one store slice. Helpers: `num()`, `ColorInput`, `SliderField`. |
+| `Editor` | — | Two-pane shell; the **Scene Timeline bar** sits above the preview; save/export orchestration; dynamic `PreviewPlayer`. |
+| `EditorForm` | — | All editing controls; Template + News Content + background media patch the **active scene**, the rest patch project slices. Helpers: `num()`, `ColorInput`, `SliderField`. Includes the per-scene **⟲ Clear scene** button. |
+| `SceneTimelineBar` | — | Horizontal strip of scene cards (number, name, template, headline, duration). **＋ Add scene**, click-to-select, **← →** reorder, **✕** delete. Drives `storyScenes` / `activeSceneId`. |
+| `BackgroundSlidesPanel` | — | Per-scene image slideshow editor: add images, per-image duration, click-to-place zoom focal point, zoom-speed slider, reorder/remove. |
 | `MediaUpload` | `{ label, accept, value?, onChange, kind: AssetKind, preview? }` | File → data URL via `fileToDataUrl`; registers/releases through `assetManager`. |
 | `AnchorPanel` | — | Registry-driven anchor catalog + per-instance `AnchorRow`. |
 
@@ -688,15 +690,15 @@ Dependency-free atoms styled with Tailwind.
 
 | Component | Props | Purpose |
 |---|---|---|
-| `PreviewPlayer` | `{ project: NewsProject }` | `@remotion/player` `<Player>` fed by memoized `buildTimeline` + `inputProps`. Same composition as export. |
+| `PreviewPlayer` | `{ project: NewsProject }` | `@remotion/player` `<Player>` fed by memoized `buildTimeline` + `inputProps`. Same composition as export. **Plays once (no loop), starts on user Play** — so scenes play through in sequence and stop at the end. |
 | `ExportQueue` | `{ queue: ReturnType<typeof useExportQueue> }` | Per-job progress bar, status pill (`STAGE_LABEL`/`STAGE_COLOR`), timings, Download/Cancel/Retry/Remove. |
 
 ### 8.4 Remotion overlay components
 
 | Component | Props | Behaviour |
 |---|---|---|
-| `Background` | `{ media, from, to, scrim=0.35 }` | Precedence: bg video → bg image (`useKenBurns`) → gradient. Always adds a black scrim for legibility. |
-| `NewsTicker` | `{ ticker, accent, bottom=0 }` | Deterministic looping scroll; null if disabled/empty. |
+| `Background` | `{ media, from, to, scrim=0.35 }` | Rendered **per scene** inside `SceneStage`. Precedence: bg video → **bg slideshow** (`SlideShow`, plays once, per-image zoom to focal point) → bg image (`useKenBurns`) → gradient. Always adds a black scrim for legibility. |
+| `NewsTicker` | `{ ticker, accent, bottom=0 }` | Deterministic scroll whose **loop period covers the full message** (estimated width + gap, two copies one period apart) so long descriptions fully scroll; label chip (default "GROUND DETAILS"); null if disabled/empty. |
 | `LogoBadge` | `{ logo?, channelName, accent, corner="top-right" }` | Logo image or accent text badge; `useZoomIn`. |
 | `Watermark` | `{ text, bottom=80 }` | Faint corner label; `useFadeIn`; null if empty. |
 | `LowerThird` | `{ reporter, location, accent, delay=30 }` | Growing accent bar + slide-in name plate; null if both empty. |
@@ -709,10 +711,14 @@ Dependency-free atoms styled with Tailwind.
 
 | Scene | Behaviour |
 |---|---|
-| `IntroScene` | Logo/channel reveal + category (staggered zoom/fade/bar). |
-| `HeadlineScene` | Delegates to `getTemplate(templateId).component` — this is where template choice takes effect. |
-| `BodyScene` | One paragraph + progress dots (reads `scene.data.paragraph/index/count`). |
-| `OutroScene` | Sign-off: logo + "Thanks for watching" + channel name. |
+| `StorySceneRenderer` | **The main path.** Renders one `story` scene: shallow-clones the project with `scene.data.storyScene`'s `content` + `templateId`, then renders that template. Lets each scene use its own template/content. |
+| `IntroScene` | Optional intro: logo/channel reveal + category (staggered zoom/fade/bar). |
+| `HeadlineScene` | Legacy single-content path: delegates to `getTemplate(templateId).component`. |
+| `BodyScene` | Legacy single-content path: one paragraph + progress dots. |
+| `OutroScene` | Optional outro: logo + "Thanks for watching" + channel name. |
+
+`SceneStage` also renders the **per-scene `Background`** (bottom layer) resolved from
+`scene.data.storyScene.media` before the scene content + anchor layers.
 
 ### 8.6 Anchor components — see [§5.5](#55-anchor-engine-virtual-presenters)
 
@@ -760,13 +766,16 @@ if/when config (e.g. output dir override, port) is externalized.
 
 The core algorithm ([`buildTimeline.ts`](src/lib/timeline/buildTimeline.ts)):
 
-1. `splitParagraphs(description)` → split on blank lines (`\n+`), trimmed, non-empty;
-   fall back to a single paragraph.
-2. Build ordered draft: `[intro?] + headline + body×paragraphs + [outro?]`.
-3. Convert seconds → frames: `secToFrames(s, fps) = Math.max(1, round(s·fps))`.
-4. Assign absolute frames; each subsequent scene starts `transitionFrames` earlier
+1. Build ordered draft:
+   - **Story path (default):** `[intro?] + one story scene per StoryScene + [outro?]`.
+     Each story scene's duration = `StoryScene.durationSeconds`, and it carries its
+     `StoryScene` in `scene.data`.
+   - **Legacy path (no `storyScenes`):** `[intro?] + headline + body×paragraphs +
+     [outro?]`, where `splitParagraphs(description)` splits on blank lines.
+2. Convert seconds → frames: `secToFrames(s, fps) = Math.max(1, round(s·fps))`.
+3. Assign absolute frames; each subsequent scene starts `transitionFrames` earlier
    (overlap) so transitions cross-fade.
-5. `totalDurationInFrames = Σ sceneFrames − transitionFrames · transitionCount`
+4. `totalDurationInFrames = Σ sceneFrames − transitionFrames · transitionCount`
    (min 1).
 
 This pure function is called by both preview and renderer → **preview == export**.
@@ -792,11 +801,21 @@ a missing key a compile error — always add a palette entry with a new template
   over `[0,d]` and exit over `[sceneDuration−d, sceneDuration]`, combining translate +
   scale, taking min opacity. `d ≈ 0.5s`.
 
-### 10.4 Ticker & audio math
+### 10.4 Ticker (description-driven) & audio math
 
-- Ticker scroll: `distance = (speed · frame/fps) mod (2·contentWidth)`;
-  `translateX(width − distance)`.
-- Audio: `base = clamp01(masterVolume)·clamp01(musicVolume)`; fade-in `[0,fadeIn]→[0,1]`,
+- **Ticker content:** `NewsComposition` derives the scrolling items from every scene's
+  `content.description` (split on blank lines / sentence-ends `. ! ?`). If no
+  description exists, it falls back to the manual `ticker.items`. Label defaults to
+  "GROUND DETAILS".
+- **Ticker scroll:** `period = max(width, message.length·14) + 120`;
+  `distance = (speed·frame/fps) mod period`; `translateX(width − distance)`. Two copies
+  are placed exactly `period` apart for a seamless loop, and the period spans the whole
+  message so long descriptions fully scroll (default `speed = 220 px/s`).
+- **Slideshow zoom (per scene):** slides play once (no loop). For slide *i* with start
+  frame `sᵢ`: `local = frame − sᵢ`; `scale = 1 + (zoomSpeed/100)·(local/fps)` toward
+  `transform-origin: focalX% focalY%`. The last slide holds + keeps zooming to the end;
+  neighbours cross-fade over ~14 frames.
+- **Audio:** `base = clamp01(masterVolume)·clamp01(musicVolume)`; fade-in `[0,fadeIn]→[0,1]`,
   fade-out `[total−fadeOut, total]→[1,0]`, multiplied by base.
 
 ### 10.5 Asset dedup (`assetManager`)
@@ -930,7 +949,9 @@ rollback procedure. Considerations when adding:
 
 **FAQ**
 - **Does it use AI?** No — deterministic templates only. This is a core product rule.
-- **Where are my projects stored?** Browser `localStorage` (`nvg-store-v2`).
+- **Where are my projects stored?** Browser **IndexedDB** (`nvg-db` → key `nvg-store-v2`).
+- **"exceeded the quota" error?** Fixed — persistence moved from `localStorage` (~5 MB)
+  to IndexedDB (much larger). Old data auto-migrates.
 - **Where do rendered files go?** `os.tmpdir()/nvg-renders/<jobId>.<ext>`.
 - **Can I render many videos at once?** Not concurrently — the queue runs one at a time.
 
@@ -1104,6 +1125,35 @@ anchors).
 > git commits yet**, so this is the authoritative history until git history exists.
 
 ### 2026-07-10
+- **Fixed `localStorage` quota crash → IndexedDB persistence:** saving projects with
+  several images/videos overflowed `localStorage`'s ~5 MB limit ("exceeded the quota"),
+  which also blocked export (export saves first). Persistence moved to **IndexedDB** via
+  a new [`idbStorage`](src/lib/store/idbStorage.ts) adapter (large quota, migrates old
+  `localStorage` data, never throws to the UI). Users can now save unlimited
+  scenes/media and export freely.
+- **Headline/subtitle auto-hide:** in each scene the template foreground holds for
+  `HOLD_SECONDS = 4` then fades out (`StorySceneRenderer`), so text isn't on screen the
+  whole scene; background/ticker continue.
+- **Ticker is now per-scene:** the "GROUND DETAILS" ticker moved from a global
+  overlay (`NewsComposition`) into `SceneStage`, so each scene scrolls **its own
+  Description** (frame is local to the scene → resets per scene). Also enlarged the bar
+  (height 96, label 32px, text 34px) for readability on YouTube; removed the
+  Category/Reporter/Location/Date/Time form inputs (blanked in defaults).
+- **Ticker overhaul (description-driven + faster + full-scroll fix):** the ticker
+  label now defaults to **"GROUND DETAILS"** and its items are auto-derived from each
+  scene's Description. Fixed a scroll bug where the loop period was `2·width`, cutting
+  off long descriptions (only ~2 words showed) — the period now spans the whole message
+  (two copies one period apart) so the full text scrolls; default `speed` raised
+  90 → 220 px/s.
+- **Hindi/Devanagari rendering fix:** headline `lineHeight` bumped to ~1.2–1.25 across
+  all templates (tight values were clipping मात्राएँ); every font stack now ends with
+  `'Noto Sans Devanagari','Nirmala UI','Mangal'` and a "Hindi / Devanagari" font option
+  was added.
+- **Preview & slideshow no-loop:** the live preview plays once and starts on user Play
+  (removed `loop`/`autoPlay`); the background slideshow plays images once (removed the
+  modulo loop) with the last image holding + zooming to the end — no double-zoom.
+- **Defaults:** Intro/Outro scenes now start **unticked**; per-scene **⟲ Clear scene**
+  button added. Doc synchronized to `PROJECT_VERSION = 6` across all sections.
 - **Fixed cross-scene media bug + made background media per-scene:** background
   image/video/slideshow were project-level (global), so removing an image from
   one scene removed it from all. Added `SceneMedia` to `StoryScene`
@@ -1197,7 +1247,7 @@ npm run lint        # next lint
 - Add a template: [`src/remotion/templates/registry.ts`](src/remotion/templates/registry.ts) + [`theme.ts`](src/remotion/theme.ts) + `TemplateId`
 - Add an anchor: [`src/anchors/registry/index.ts`](src/anchors/registry/index.ts) + new `src/anchors/<name>/`
 - Render output: `os.tmpdir()/nvg-renders/`
-- Store key: `localStorage["nvg-store-v2"]`
+- Store: IndexedDB `nvg-db` → `keyval["nvg-store-v2"]` (via `idbStorage`)
 
 ---
 

@@ -9,7 +9,6 @@ import { AnchorPanel } from "./AnchorPanel";
 import { TEMPLATE_LIST } from "@/remotion/templates/registry";
 import type { Resolution, Fps, AspectRatio, VideoFormat } from "@/types/project";
 
-const CATEGORIES = ["GENERAL", "POLITICS", "BUSINESS", "SPORTS", "TECHNOLOGY", "WEATHER", "WORLD", "HEALTH"];
 // Every stack ends with Devanagari fallbacks so Hindi (मात्रा included) always
 // renders, whichever primary font is chosen.
 const DEVANAGARI_FALLBACK = "'Noto Sans Devanagari', 'Nirmala UI', 'Mangal'";
@@ -116,31 +115,6 @@ export function EditorForm() {
             onChange={(e) => updateSceneContent({ description: e.target.value })}
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Category">
-            <Select value={p.content.category} onChange={(e) => updateSceneContent({ category: e.target.value })}>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Reporter">
-            <Input value={p.content.reporter} onChange={(e) => updateSceneContent({ reporter: e.target.value })} />
-          </Field>
-          <Field label="Location">
-            <Input value={p.content.location} onChange={(e) => updateSceneContent({ location: e.target.value })} />
-          </Field>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Date">
-              <Input type="date" value={p.content.date} onChange={(e) => updateSceneContent({ date: e.target.value })} />
-            </Field>
-            <Field label="Time">
-              <Input type="time" value={p.content.time} onChange={(e) => updateSceneContent({ time: e.target.value })} />
-            </Field>
-          </div>
-        </div>
       </div>
 
       {/* ---------- Media ---------- */}

@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { idbStorage } from "./idbStorage";
 import type {
   NewsProject,
   NewsContent,
@@ -317,7 +318,10 @@ export const useProjectStore = create<ProjectState>()(
     {
       name: "nvg-store-v2",
       version: PROJECT_VERSION,
-      storage: createJSONStorage(() => localStorage),
+      // IndexedDB (not localStorage) so large media libraries don't hit the ~5 MB
+      // localStorage quota — users can save unlimited scenes/media and export freely.
+      // Async storage; `useMounted()` already gates persisted-state rendering.
+      storage: createJSONStorage(() => idbStorage),
       // Persist the whole library (including media data URLs) so a saved project
       // reloads exactly. The working `current` project is ephemeral.
       partialize: (s) => ({ saved: s.saved }),
