@@ -10,7 +10,7 @@ import { TEMPLATES } from "@/remotion/templates/registry";
  * Click a card to edit that scene in the form; use ＋ to append a fresh blank
  * scene. On export, scenes render sequentially into one video.
  */
-export function SceneTimelineBar() {
+export function SceneTimelineBar({ onSeek }: { onSeek?: (sceneId: string) => void }) {
   const scenes = useProjectStore((s) => s.current.storyScenes);
   const activeSceneId = useProjectStore((s) => s.current.activeSceneId);
   const selectScene = useProjectStore((s) => s.selectScene);
@@ -42,7 +42,10 @@ export function SceneTimelineBar() {
           return (
             <div
               key={scene.id}
-              onClick={() => selectScene(scene.id)}
+              onClick={() => {
+                selectScene(scene.id);
+                onSeek?.(scene.id);
+              }}
               className={`group relative w-44 shrink-0 cursor-pointer rounded-lg border p-2 transition-colors ${
                 isActive
                   ? "border-accent-soft bg-surface"

@@ -8,6 +8,7 @@ import { useExportQueue } from "@/lib/export/useExportQueue";
 import { EditorForm } from "./EditorForm";
 import { SceneTimelineBar } from "./SceneTimelineBar";
 import { Button } from "@/components/ui/primitives";
+import type { PlayerRef } from "@remotion/player";
 import { getDimensions } from "@/types/project";
 import { buildTimeline } from "@/lib/timeline/buildTimeline";
 
@@ -53,6 +54,14 @@ export function Editor() {
   const { width, height } = getDimensions(project.settings.resolution, project.settings.aspectRatio);
   const timeline = buildTimeline(project);
 
+  // Seek the preview to a scene's start frame when its timeline card is clicked,
+  // so pressing Play resumes from that scene.
+  const playerRef = React.useRef<PlayerRef>(null);
+  function seekToScene(sceneId: string) {
+    const tlScene = timeline.scenes.find((s) => s.data?.storyScene?.id === sceneId);
+    playerRef.current?.seekTo(tlScene?.startFrame ?? 0);
+  }
+
   return (
     <div className="flex min-h-screen flex-col lg:h-screen lg:overflow-hidden">
       <header className="flex items-center justify-between border-b border-surface-border px-6 py-3">
@@ -90,7 +99,7 @@ export function Editor() {
         <div className="scrollable flex flex-col items-center justify-start bg-black/40 p-8 lg:overflow-y-auto">
           <div className="w-full max-w-4xl">
             {/* Horizontal scene timeline — add/select/reorder scenes above the video */}
-            <SceneTimelineBar />
+            <SceneTimelineBar onSeek={seekToScene} />
             <div className="mb-3 flex items-center justify-between text-xs text-slate-500">
               <span>
                 Live Preview · {timeline.scenes.length} scenes ({project.settings.aspectRatio})
@@ -100,7 +109,7 @@ export function Editor() {
                 {(timeline.totalDurationInFrames / timeline.fps).toFixed(1)}s
               </span>
             </div>
-            <PreviewPlayer project={project} />
+            <PreviewPlayer project={project} playerRef={playerRef} />
             <p className="mt-4 text-center text-xs text-slate-600">
               Every edit updates this preview instantly. The exported video renders this identical composition.
             </p>

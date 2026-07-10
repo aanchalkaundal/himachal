@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Player } from "@remotion/player";
+import { Player, type PlayerRef } from "@remotion/player";
 import { NewsComposition } from "@/remotion/NewsComposition";
 import type { NewsProject } from "@/types/project";
 import { buildTimeline } from "@/lib/timeline/buildTimeline";
@@ -12,12 +12,19 @@ import { buildTimeline } from "@/lib/timeline/buildTimeline";
  * calculation — so the preview and the exported MP4 are identical. Because the
  * project comes straight from the store, every edit re-renders instantly.
  */
-export function PreviewPlayer({ project }: { project: NewsProject }) {
+export function PreviewPlayer({
+  project,
+  playerRef,
+}: {
+  project: NewsProject;
+  playerRef?: React.Ref<PlayerRef>;
+}) {
   const timeline = useMemo(() => buildTimeline(project), [project]);
   const inputProps = useMemo(() => ({ project }), [project]);
 
   return (
     <Player
+      ref={playerRef}
       component={NewsComposition as React.FC<Record<string, unknown>>}
       inputProps={inputProps}
       durationInFrames={timeline.totalDurationInFrames}
