@@ -11,6 +11,7 @@ import type {
   VideoSettings,
   AudioSettings,
   SceneConfig,
+  BackgroundSlide,
 } from "@/types/project";
 import { PROJECT_VERSION } from "@/types/project";
 import type { AnchorInstance } from "@/anchors/types";
@@ -30,6 +31,13 @@ interface ProjectState {
   updateBranding: (patch: Partial<Branding>) => void;
   updateTicker: (patch: Partial<TickerConfig>) => void;
   updateMedia: (patch: Partial<MediaAssets>) => void;
+
+  // --- background slideshow ---
+  addBackgroundSlide: (slide: BackgroundSlide) => void;
+  updateBackgroundSlide: (id: string, patch: Partial<BackgroundSlide>) => void;
+  removeBackgroundSlide: (id: string) => void;
+  reorderBackgroundSlide: (id: string, direction: -1 | 1) => void;
+
   updateAudio: (patch: Partial<AudioSettings>) => void;
   updateScenes: (patch: Partial<SceneConfig>) => void;
   updateSettings: (patch: Partial<VideoSettings>) => void;
@@ -95,6 +103,45 @@ export const useProjectStore = create<ProjectState>()(
         set((s) => ({ current: touch({ ...s.current, ticker: { ...s.current.ticker, ...patch } }) })),
       updateMedia: (patch) =>
         set((s) => ({ current: touch({ ...s.current, media: { ...s.current.media, ...patch } }) })),
+
+      addBackgroundSlide: (slide) =>
+        set((s) => ({
+          current: touch({
+            ...s.current,
+            media: { ...s.current.media, backgroundSlides: [...(s.current.media.backgroundSlides ?? []), slide] },
+          }),
+        })),
+      updateBackgroundSlide: (id, patch) =>
+        set((s) => ({
+          current: touch({
+            ...s.current,
+            media: {
+              ...s.current.media,
+              backgroundSlides: (s.current.media.backgroundSlides ?? []).map((sl) =>
+                sl.id === id ? { ...sl, ...patch } : sl,
+              ),
+            },
+          }),
+        })),
+      removeBackgroundSlide: (id) =>
+        set((s) => ({
+          current: touch({
+            ...s.current,
+            media: {
+              ...s.current.media,
+              backgroundSlides: (s.current.media.backgroundSlides ?? []).filter((sl) => sl.id !== id),
+            },
+          }),
+        })),
+      reorderBackgroundSlide: (id, direction) =>
+        set((s) => {
+          const arr = [...(s.current.media.backgroundSlides ?? [])];
+          const i = arr.findIndex((sl) => sl.id === id);
+          const j = i + direction;
+          if (i < 0 || j < 0 || j >= arr.length) return {};
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+          return { current: touch({ ...s.current, media: { ...s.current.media, backgroundSlides: arr } }) };
+        }),
       updateAudio: (patch) =>
         set((s) => ({ current: touch({ ...s.current, audio: { ...s.current.audio, ...patch } }) })),
       updateScenes: (patch) =>

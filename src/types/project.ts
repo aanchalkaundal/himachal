@@ -17,7 +17,7 @@ export type TemplateId =
   | "data-pulse"
   | "sports-spotlight";
 
-export type Resolution = "720p" | "1080p";
+export type Resolution = "720p" | "1080p" | "1440p" | "2160p";
 export type Fps = 30 | 60;
 export type AspectRatio = "16:9" | "9:16" | "1:1";
 export type VideoFormat = "mp4" | "webm";
@@ -41,6 +41,45 @@ export interface NewsContent {
 }
 
 /**
+ * A single background image in the slideshow. Each slide is shown for
+ * `durationSeconds`, then the show advances (and loops across the whole video).
+ * The image performs a Ken Burns zoom toward the focal point at `zoomSpeed`.
+ */
+export interface BackgroundSlide {
+  id: string;
+  /** Image data/object URL. */
+  src: string;
+  /** How long this image stays on screen, in seconds. */
+  durationSeconds: number;
+  /** Zoom focal point as viewport percentages (0..100). The image scales toward here. */
+  focalX: number;
+  focalY: number;
+  /**
+   * Zoom amount per second, as a percentage. e.g. 10 → +10% scale each second
+   * (so a 5s slide ends at 1.5×). 0 = no zoom (static). Negative = zoom out.
+   */
+  zoomSpeed: number;
+}
+
+/**
+ * One user-authored scene on the story timeline. A project is an ordered list of
+ * these; the renderer plays them back-to-back into a single video. Each scene has
+ * its own template and editorial content, so a project can mix looks (e.g. a
+ * Breaking-News opener, a Business segment, a Sports closer).
+ */
+export interface StoryScene {
+  id: string;
+  /** Short label shown on the timeline bar (e.g. "Scene 1"). */
+  name: string;
+  /** Template used to render this scene's foreground. */
+  templateId: TemplateId;
+  /** How long this scene runs, in seconds. */
+  durationSeconds: number;
+  /** This scene's editorial content. */
+  content: NewsContent;
+}
+
+/**
  * Uploaded media. Values are browser object/data URLs in the editor and are
  * passed straight to the renderer as inputProps (Remotion loads data URLs).
  */
@@ -49,6 +88,11 @@ export interface MediaAssets {
   thumbnail?: string;
   backgroundImage?: string;
   backgroundVideo?: string;
+  /**
+   * Ordered background slideshow. When non-empty this takes precedence over a
+   * single `backgroundImage` (but a `backgroundVideo` still wins over both).
+   */
+  backgroundSlides?: BackgroundSlide[];
   backgroundMusic?: string;
   introMusic?: string;
   outroMusic?: string;
@@ -123,33 +167,45 @@ export interface NewsProject {
   ticker: TickerConfig;
   audio: AudioSettings;
   scenes: SceneConfig;
+  /**
+   * The story timeline: an ordered list of user-authored scenes rendered
+   * back-to-back. Always has at least one scene. `content`/`settings.templateId`
+   * mirror the active scene for backward compatibility and the persistent
+   * background look.
+   */
+  storyScenes: StoryScene[];
+  /** Id of the scene currently being edited / previewed in the form. */
+  activeSceneId: string;
   /** Placed anchors (Anchor Engine). Empty by default. */
   anchors: AnchorInstance[];
   settings: VideoSettings;
 }
 
 /** Current project schema version. */
-export const PROJECT_VERSION = 3;
+export const PROJECT_VERSION = 5;
 
 /**
- * Base pixel size (long edge) per resolution. Actual width/height are derived
- * by applying the aspect ratio in `getDimensions`.
+ * Base long/short edge (px) per resolution, on a 16:9 grid. Actual width/height
+ * are derived by applying the aspect ratio in `getDimensions`. 1440p = QHD (2K),
+ * 2160p = UHD (4K); both keep even dimensions across every aspect ratio, which
+ * H.264/VP8 encoders require.
  */
-const BASE_LONG_EDGE: Record<Resolution, number> = {
-  "720p": 1280,
-  "1080p": 1920,
+const BASE_EDGES: Record<Resolution, { long: number; short: number }> = {
+  "720p": { long: 1280, short: 720 },
+  "1080p": { long: 1920, short: 1080 },
+  "1440p": { long: 2560, short: 1440 },
+  "2160p": { long: 3840, short: 2160 },
 };
 
 /** Compute concrete pixel dimensions for a resolution + aspect ratio (16:9 base). */
 export function getDimensions(resolution: Resolution, aspect: AspectRatio): { width: number; height: number } {
-  const longEdge = BASE_LONG_EDGE[resolution];
-  const shortEdge = resolution === "720p" ? 720 : 1080;
+  const { long, short } = BASE_EDGES[resolution];
   switch (aspect) {
     case "16:9":
-      return { width: longEdge, height: shortEdge };
+      return { width: long, height: short };
     case "9:16":
-      return { width: shortEdge, height: longEdge };
+      return { width: short, height: long };
     case "1:1":
-      return { width: shortEdge, height: shortEdge };
+      return { width: short, height: short };
   }
 }

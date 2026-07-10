@@ -1,9 +1,34 @@
-import type { NewsProject } from "@/types/project";
+import type { NewsProject, NewsContent, StoryScene, TemplateId } from "@/types/project";
 import { PROJECT_VERSION } from "@/types/project";
 
 /** Small deterministic id generator (no crypto dependency needed for Phase 1). */
 export function createId(prefix = "proj"): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+/** Empty content for a brand-new, blank scene the user then fills in. */
+export function createBlankContent(now: string = new Date().toISOString()): NewsContent {
+  const d = new Date(now);
+  return {
+    headline: "",
+    subtitle: "",
+    description: "",
+    category: "GENERAL",
+    reporter: "",
+    location: "",
+    date: now.slice(0, 10),
+    time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+  };
+}
+
+/** Build a story scene from content + template. */
+export function createStoryScene(
+  name: string,
+  content: NewsContent,
+  templateId: TemplateId = "breaking-news",
+  durationSeconds = 6,
+): StoryScene {
+  return { id: createId("scene"), name, templateId, durationSeconds, content };
 }
 
 /**
@@ -12,25 +37,29 @@ export function createId(prefix = "proj"): string {
  */
 export function createDefaultProject(now: string = new Date().toISOString()): NewsProject {
   const dateObj = new Date(now);
+  const content: NewsContent = {
+    headline: "Breaking: Major Development Unfolds Across the Region",
+    subtitle: "Officials respond as the situation develops",
+    description:
+      "Authorities have issued a statement following today's events. Our correspondent brings the latest updates from the ground as more details emerge.",
+    category: "GENERAL",
+    reporter: "A. Reporter",
+    location: "New Delhi",
+    date: now.slice(0, 10),
+    time: `${String(dateObj.getHours()).padStart(2, "0")}:${String(
+      dateObj.getMinutes(),
+    ).padStart(2, "0")}`,
+  };
+  const scene1 = createStoryScene("Scene 1", content, "breaking-news", 6);
   return {
     version: PROJECT_VERSION,
     id: createId(),
     name: "Untitled News Project",
     createdAt: now,
     updatedAt: now,
-    content: {
-      headline: "Breaking: Major Development Unfolds Across the Region",
-      subtitle: "Officials respond as the situation develops",
-      description:
-        "Authorities have issued a statement following today's events. Our correspondent brings the latest updates from the ground as more details emerge.",
-      category: "GENERAL",
-      reporter: "A. Reporter",
-      location: "New Delhi",
-      date: now.slice(0, 10),
-      time: `${String(dateObj.getHours()).padStart(2, "0")}:${String(
-        dateObj.getMinutes(),
-      ).padStart(2, "0")}`,
-    },
+    content,
+    storyScenes: [scene1],
+    activeSceneId: scene1.id,
     media: {},
     branding: {
       channelName: "NEWS 24",
@@ -57,8 +86,8 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
     },
     anchors: [],
     scenes: {
-      includeIntro: true,
-      includeOutro: true,
+      includeIntro: false,
+      includeOutro: false,
       introSeconds: 2.5,
       headlineSeconds: 5,
       bodySecondsPerParagraph: 4,

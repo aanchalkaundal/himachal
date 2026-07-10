@@ -1025,6 +1025,19 @@ anchors).
 > git commits yet**, so this is the authoritative history until git history exists.
 
 ### 2026-07-10
+- **Added 2K & 4K export resolutions:** `Resolution` union extended to
+  `720p | 1080p | 1440p | 2160p`; `getDimensions` now uses a `BASE_EDGES` table
+  (1440p = 2560×1440 QHD, 2160p = 3840×2160 UHD) keeping even dimensions across
+  all aspect ratios. Editor Resolution selector lists all four with labels.
+- **Added background image slideshow** (multi-image backgrounds): new
+  `BackgroundSlide` type + `media.backgroundSlides` in `types/project.ts`
+  (`PROJECT_VERSION` bumped 3→4); `Background.tsx` now plays a looping,
+  cross-fading slideshow where each image has its own **duration**, **zoom focal
+  point** (click-to-place), and **zoom speed** (Ken Burns toward the point);
+  new `BackgroundSlidesPanel.tsx` editor UI; store helpers
+  `addBackgroundSlide` / `updateBackgroundSlide` / `removeBackgroundSlide` /
+  `reorderBackgroundSlide`. Precedence: video → slideshow → single image →
+  gradient. `npm run typecheck` passes.
 - **Added 4 advanced templates:** `cinematic-prime`, `live-bulletin`, `data-pulse`,
   `sports-spotlight` — new components under `src/remotion/templates/`, registered in
   `registry.ts`, added to the `TemplateId` union and `TEMPLATE_PALETTE` in `theme.ts`.

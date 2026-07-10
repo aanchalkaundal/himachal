@@ -4,6 +4,7 @@ import React from "react";
 import { useProjectStore } from "@/lib/store/projectStore";
 import { Field, Input, Textarea, Select, SectionTitle } from "@/components/ui/primitives";
 import { MediaUpload } from "./MediaUpload";
+import { BackgroundSlidesPanel } from "./BackgroundSlidesPanel";
 import { AnchorPanel } from "./AnchorPanel";
 import { TEMPLATE_LIST } from "@/remotion/templates/registry";
 import type { Resolution, Fps, AspectRatio, VideoFormat } from "@/types/project";
@@ -106,6 +107,7 @@ export function EditorForm() {
       <SectionTitle>Media</SectionTitle>
       <div className="space-y-2">
         <MediaUpload label="Logo" accept="image/*" kind="logo" value={p.media.logo} onChange={(v) => updateMedia({ logo: v })} />
+        <BackgroundSlidesPanel />
         <MediaUpload
           label="Background Image"
           accept="image/*"
@@ -328,8 +330,10 @@ export function EditorForm() {
             value={p.settings.resolution}
             onChange={(e) => updateSettings({ resolution: e.target.value as Resolution })}
           >
-            <option value="720p">720p</option>
-            <option value="1080p">1080p</option>
+            <option value="720p">720p (HD)</option>
+            <option value="1080p">1080p (Full HD)</option>
+            <option value="1440p">1440p (2K QHD)</option>
+            <option value="2160p">2160p (4K UHD)</option>
           </Select>
         </Field>
         <Field label="Aspect ratio">
