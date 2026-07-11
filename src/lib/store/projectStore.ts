@@ -89,19 +89,30 @@ function mirrorActive(p: NewsProject): NewsProject {
 }
 
 /**
+ * A scene with a slideshow lasts as long as its LONGER layer (base slides play
+ * in sequence; overlay slides play in their own sequence on top). Falls back to
+ * the scene's own duration when there are no slides.
+ */
+function sceneDurationFromSlides(slides: BackgroundSlide[] | undefined, fallback: number): number {
+  const list = slides ?? [];
+  if (list.length === 0) return fallback;
+  const totalFor = (layer: "base" | "overlay") =>
+    list
+      .filter((s) => (s.layer ?? "base") === layer)
+      .reduce((sum, s) => sum + (Number(s.durationSeconds) || 0), 0);
+  return Math.max(0.5, totalFor("base"), totalFor("overlay"));
+}
+
+/**
  * Immutably patch the ACTIVE scene's media and re-mirror. When the scene has a
- * background slideshow, the scene's duration is auto-set to the total of the
- * slides' durations (so the video length always matches the media).
+ * background slideshow, the scene's duration is auto-set to the longer layer's
+ * total (so the video length always matches the media).
  */
 function patchActiveMedia(p: NewsProject, fn: (m: SceneMedia) => SceneMedia): NewsProject {
   const storyScenes = p.storyScenes.map((sc) => {
     if (sc.id !== p.activeSceneId) return sc;
     const media = fn(sc.media ?? {});
-    const slides = media.backgroundSlides ?? [];
-    const durationSeconds =
-      slides.length > 0
-        ? Math.max(0.5, slides.reduce((sum, s) => sum + (Number(s.durationSeconds) || 0), 0))
-        : sc.durationSeconds;
+    const durationSeconds = sceneDurationFromSlides(media.backgroundSlides, sc.durationSeconds);
     return { ...sc, media, durationSeconds };
   });
   return mirrorActive({ ...p, storyScenes });
@@ -148,12 +159,8 @@ export function migrateProject(input: Partial<NewsProject>): NewsProject {
     // Ensure every scene has its own media; give the first scene any legacy
     // project-level background if it has none of its own.
     const media = sc.media ?? (i === 0 ? legacyBg : {});
-    const slides = media.backgroundSlides ?? [];
-    // Keep scene duration in sync with its slideshow total.
-    const durationSeconds =
-      slides.length > 0
-        ? Math.max(0.5, slides.reduce((sum, s) => sum + (Number(s.durationSeconds) || 0), 0))
-        : sc.durationSeconds;
+    // Keep scene duration in sync with its slideshow (longer of base/overlay).
+    const durationSeconds = sceneDurationFromSlides(media.backgroundSlides, sc.durationSeconds);
     return { ...sc, media, durationSeconds };
   });
   merged.storyScenes = scenes;

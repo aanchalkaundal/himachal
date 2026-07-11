@@ -52,6 +52,15 @@ export function BackgroundSlidesPanel() {
     if (fileRef.current) fileRef.current.value = "";
   }
 
+  const hasStandaloneBase = useProjectStore((s) => {
+    const a = s.current.storyScenes.find((sc) => sc.id === s.current.activeSceneId);
+    return Boolean(a?.media?.backgroundImage || a?.media?.backgroundVideo);
+  });
+
+  const baseCount = slides.filter((s) => (s.layer ?? "base") === "base").length;
+  const overlayCount = slides.filter((s) => s.layer === "overlay").length;
+  const hasBase = baseCount > 0 || hasStandaloneBase;
+  const overlayNeedsBase = overlayCount > 0 && !hasBase;
   const totalSeconds = slides.reduce((sum, s) => sum + (Number(s.durationSeconds) || 0), 0);
 
   return (
@@ -62,8 +71,8 @@ export function BackgroundSlidesPanel() {
             Background Slideshow · this scene
           </span>
           <p className="mt-0.5 text-[11px] text-slate-500">
-            Images &amp; videos for the selected scene — each with its own duration; zoom point/speed
-            (zoom is optional for videos).
+            Images &amp; videos for the selected scene — each with its own duration &amp; zoom. Tick
+            &ldquo;on top (overlay)&rdquo; to layer media over the background (great with green-screen removed).
             {slides.length > 0 ? ` · ${slides.length} item${slides.length > 1 ? "s" : ""} · ${totalSeconds.toFixed(1)}s total` : ""}
           </p>
         </div>
@@ -73,10 +82,17 @@ export function BackgroundSlidesPanel() {
         </Button>
       </div>
 
+      {overlayNeedsBase ? (
+        <div className="mb-2 rounded border border-amber-500/40 bg-amber-500/10 p-2 text-[11px] text-amber-300">
+          ⚠ An overlay item has nothing behind it. Add a background item (leave &ldquo;Place on top&rdquo;
+          <span className="font-semibold"> unchecked</span>) — the overlay layers over it. Right now it sits over the gradient.
+        </div>
+      ) : null}
+
       {slides.length === 0 ? (
         <div className="rounded border border-dashed border-surface-border p-4 text-center text-xs text-slate-600">
-          No slideshow images. Add images to build a zooming background sequence
-          (this overrides the single Background Image below).
+          No slideshow media. Add images/videos to build the scene background.
+          The first (base) items are the background; tick &ldquo;Place on top&rdquo; to layer media above them.
         </div>
       ) : (
         <div className="space-y-3">
@@ -167,6 +183,9 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-300">
               {isVideo ? "Video" : "Image"} {index + 1}
+              {slide.layer === "overlay" ? (
+                <span className="ml-1 rounded bg-accent/20 px-1 text-[9px] text-accent-soft">OVERLAY</span>
+              ) : null}
             </span>
             <div className="flex items-center gap-1">
               <IconBtn label="Move up" disabled={index === 0} onClick={() => reorder(slide.id, -1)}>↑</IconBtn>
@@ -224,6 +243,19 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
               Remove green screen
               {keying ? " — processing…" : slide.chromaKey ? " ✓" : ""}
               {isVideo ? <span className="text-slate-600"> (live)</span> : null}
+            </span>
+          </label>
+
+          {/* Layer: base (background) vs overlay (on top of the background) */}
+          <label className="flex items-center gap-2 text-[11px] text-slate-300">
+            <input
+              type="checkbox"
+              checked={slide.layer === "overlay"}
+              onChange={(e) => update(slide.id, { layer: e.target.checked ? "overlay" : "base" })}
+            />
+            <span>
+              Place on top (overlay)
+              {slide.layer === "overlay" ? <span className="text-accent-soft"> ▲</span> : null}
             </span>
           </label>
         </div>

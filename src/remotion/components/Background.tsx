@@ -103,6 +103,8 @@ const SlideShow: React.FC<{ slides: BackgroundSlide[] }> = ({ slides }) => {
 export const Background: React.FC<BackgroundProps> = ({ media, from, to, scrim = 0.35 }) => {
   const ken = useKenBurns();
   const slides = media.backgroundSlides ?? [];
+  const baseSlides = slides.filter((s) => (s.layer ?? "base") === "base");
+  const overlaySlides = slides.filter((s) => s.layer === "overlay");
 
   return (
     <AbsoluteFill>
@@ -110,17 +112,23 @@ export const Background: React.FC<BackgroundProps> = ({ media, from, to, scrim =
           media composites over the gradient instead of black. */}
       <AbsoluteFill style={{ background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` }} />
 
+      {/* Base (background) layer */}
       {media.backgroundVideo ? (
         <OffthreadVideo src={media.backgroundVideo} muted style={{ objectFit: "cover", width: "100%", height: "100%" }} />
-      ) : slides.length > 0 ? (
-        <SlideShow slides={slides} />
+      ) : baseSlides.length > 0 ? (
+        <SlideShow slides={baseSlides} />
       ) : media.backgroundImage ? (
         <AbsoluteFill style={ken}>
           <Img src={media.backgroundImage} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
         </AbsoluteFill>
       ) : null}
 
+      {/* Scrim darkens only the background so foreground text stays legible. */}
       <AbsoluteFill style={{ background: `rgba(0,0,0,${scrim})` }} />
+
+      {/* Overlay layer — sits ABOVE the scrim (not dimmed), e.g. a green-screen
+          subject composited over the background. */}
+      {overlaySlides.length > 0 ? <SlideShow slides={overlaySlides} /> : null}
     </AbsoluteFill>
   );
 };

@@ -25,6 +25,7 @@ export function PreviewPlayer({
   return (
     <Player
       ref={playerRef}
+      acknowledgeRemotionLicense
       component={NewsComposition as React.FC<Record<string, unknown>>}
       inputProps={inputProps}
       durationInFrames={timeline.totalDurationInFrames}

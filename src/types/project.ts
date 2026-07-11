@@ -49,6 +49,12 @@ export interface BackgroundSlide {
   id: string;
   /** "image" (default) or "video". */
   kind?: "image" | "video";
+  /**
+   * Compositing layer: "base" (default) plays in the background; "overlay" plays
+   * ON TOP of the base — useful for a green-screen-removed subject over a
+   * background. Base and overlay each run as their own sequence.
+   */
+  layer?: "base" | "overlay";
   /** Image or video data/object URL (green-screen-removed version when `chromaKey`). */
   src: string;
   /** Whether the green screen has been removed (images only). */
