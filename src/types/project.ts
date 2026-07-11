@@ -165,6 +165,36 @@ export interface SocialConfig {
   position: "top" | "bottom";
 }
 
+/**
+ * One audio clip placed on the audio timeline. Plays from `startSeconds` on the
+ * master timeline for `durationSeconds`, sourced from `trimStartSeconds` into the
+ * file (cut/trim), with its own volume and fades. Rendered via a Remotion
+ * <Audio> in a <Sequence>, so it plays in the preview AND in the export.
+ */
+export interface AudioClip {
+  id: string;
+  name: string;
+  src: string;
+  /** Position on the master video timeline, in seconds. */
+  startSeconds: number;
+  /** How long it plays (after trim), in seconds. */
+  durationSeconds: number;
+  /** In-point within the source file (cut from the start), in seconds. */
+  trimStartSeconds: number;
+  /** 0..1 clip volume. */
+  volume: number;
+  fadeInSeconds: number;
+  fadeOutSeconds: number;
+  /** Track/lane index (0-based) so clips can overlap on separate rows. */
+  lane: number;
+  /** Loop the source to fill `durationSeconds`. */
+  loop: boolean;
+  /** Muted (kept on the timeline but silent). */
+  muted: boolean;
+  /** Full source length in seconds (for trim clamping); 0 if unknown. */
+  sourceDurationSeconds: number;
+}
+
 /** Audio mixing settings. Volumes are 0..1; fades are in seconds. */
 export interface AudioSettings {
   masterVolume: number;
@@ -215,6 +245,8 @@ export interface NewsProject {
   branding: Branding;
   ticker: TickerConfig;
   audio: AudioSettings;
+  /** Audio timeline: clips placed/trimmed/faded on the master timeline. */
+  audioClips: AudioClip[];
   /** On-screen social channel handles (shown at a chosen time; not auto-posting). */
   social: SocialConfig;
   scenes: SceneConfig;
@@ -233,7 +265,7 @@ export interface NewsProject {
 }
 
 /** Current project schema version. */
-export const PROJECT_VERSION = 7;
+export const PROJECT_VERSION = 9;
 
 /**
  * Base long/short edge (px) per resolution, on a 16:9 grid. Actual width/height

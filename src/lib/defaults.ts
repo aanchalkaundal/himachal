@@ -83,6 +83,7 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
       fadeInSeconds: 1,
       fadeOutSeconds: 1.5,
     },
+    audioClips: [],
     social: {
       enabled: true,
       youtube: "",

@@ -16,6 +16,7 @@ import type {
   StoryScene,
   SceneMedia,
   SocialConfig,
+  AudioClip,
 } from "@/types/project";
 import { PROJECT_VERSION } from "@/types/project";
 import type { AnchorInstance } from "@/anchors/types";
@@ -46,6 +47,11 @@ interface ProjectState {
 
   updateAudio: (patch: Partial<AudioSettings>) => void;
   updateSocial: (patch: Partial<SocialConfig>) => void;
+
+  // --- audio timeline ---
+  addAudioClip: (clip: AudioClip) => void;
+  updateAudioClip: (id: string, patch: Partial<AudioClip>) => void;
+  removeAudioClip: (id: string) => void;
   updateScenes: (patch: Partial<SceneConfig>) => void;
   updateSettings: (patch: Partial<VideoSettings>) => void;
   setTickerItems: (items: string[]) => void;
@@ -94,8 +100,9 @@ function mirrorActive(p: NewsProject): NewsProject {
  * the scene's own duration when there are no slides.
  */
 function sceneDurationFromSlides(slides: BackgroundSlide[] | undefined, fallback: number): number {
+  const safeFallback = Number.isFinite(fallback) && fallback > 0 ? fallback : 6;
   const list = slides ?? [];
-  if (list.length === 0) return fallback;
+  if (list.length === 0) return safeFallback;
   const totalFor = (layer: "base" | "overlay") =>
     list
       .filter((s) => (s.layer ?? "base") === layer)
@@ -134,6 +141,13 @@ export function migrateProject(input: Partial<NewsProject>): NewsProject {
     branding: { ...d.branding, ...input.branding },
     ticker: { ...d.ticker, ...input.ticker },
     audio: { ...d.audio, ...input.audio },
+    audioClips: ((input.audioClips ?? d.audioClips) as Partial<AudioClip>[]).map((c) => ({
+      lane: 0,
+      loop: false,
+      muted: false,
+      sourceDurationSeconds: c.durationSeconds ?? 0,
+      ...c,
+    })) as AudioClip[],
     social: { ...d.social, ...input.social },
     scenes: { ...d.scenes, ...input.scenes },
     anchors: input.anchors ?? d.anchors,
@@ -235,6 +249,20 @@ export const useProjectStore = create<ProjectState>()(
         set((s) => ({ current: touch({ ...s.current, audio: { ...s.current.audio, ...patch } }) })),
       updateSocial: (patch) =>
         set((s) => ({ current: touch({ ...s.current, social: { ...s.current.social, ...patch } }) })),
+
+      addAudioClip: (clip) =>
+        set((s) => ({ current: touch({ ...s.current, audioClips: [...s.current.audioClips, clip] }) })),
+      updateAudioClip: (id, patch) =>
+        set((s) => ({
+          current: touch({
+            ...s.current,
+            audioClips: s.current.audioClips.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+          }),
+        })),
+      removeAudioClip: (id) =>
+        set((s) => ({
+          current: touch({ ...s.current, audioClips: s.current.audioClips.filter((c) => c.id !== id) }),
+        })),
       updateScenes: (patch) =>
         set((s) => ({ current: touch({ ...s.current, scenes: { ...s.current.scenes, ...patch } }) })),
       updateSettings: (patch) =>

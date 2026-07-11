@@ -7,6 +7,7 @@ import { useProjectStore } from "@/lib/store/projectStore";
 import { useExportQueue } from "@/lib/export/useExportQueue";
 import { EditorForm } from "./EditorForm";
 import { SceneTimelineBar } from "./SceneTimelineBar";
+import { AudioTimelineBar } from "./AudioTimelineBar";
 import { Button } from "@/components/ui/primitives";
 import type { PlayerRef } from "@remotion/player";
 import { getDimensions } from "@/types/project";
@@ -95,25 +96,32 @@ export function Editor() {
           <EditorForm />
         </div>
 
-        {/* Live preview */}
-        <div className="scrollable flex flex-col items-center justify-start bg-black/40 p-8 lg:overflow-y-auto">
-          <div className="w-full max-w-4xl">
-            {/* Horizontal scene timeline — add/select/reorder scenes above the video */}
-            <SceneTimelineBar onSeek={seekToScene} />
-            <div className="mb-3 flex items-center justify-between text-xs text-slate-500">
-              <span>
-                Live Preview · {timeline.scenes.length} scenes ({project.settings.aspectRatio})
-              </span>
-              <span>
-                {width}×{height} · {project.settings.fps} fps ·{" "}
-                {(timeline.totalDurationInFrames / timeline.fps).toFixed(1)}s
-              </span>
-            </div>
-            <PreviewPlayer project={project} playerRef={playerRef} />
-            <p className="mt-4 text-center text-xs text-slate-600">
-              Every edit updates this preview instantly. The exported video renders this identical composition.
-            </p>
+        {/* Live preview — scene timeline, video (flexible), audio timeline all fit */}
+        <div className="scrollable flex flex-col bg-black/40 p-4 lg:min-h-0 lg:overflow-hidden">
+          {/* Horizontal scene timeline — add/select/reorder scenes above the video */}
+          <SceneTimelineBar onSeek={seekToScene} />
+          <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
+            <span>
+              Live Preview · {timeline.scenes.length} scenes ({project.settings.aspectRatio})
+            </span>
+            <span>
+              {width}×{height} · {project.settings.fps} fps ·{" "}
+              {(timeline.totalDurationInFrames / timeline.fps).toFixed(1)}s
+            </span>
           </div>
+
+          {/* Video takes the remaining height and fits (letterboxed) so the audio
+              timeline below stays visible without scrolling. */}
+          <div className="flex min-h-[220px] flex-1 items-center justify-center lg:min-h-0">
+            <PreviewPlayer project={project} playerRef={playerRef} fit />
+          </div>
+
+          {/* Audio timeline — add/drag/trim/fade audio; plays in preview & export */}
+          <AudioTimelineBar
+            totalSeconds={timeline.totalDurationInFrames / timeline.fps}
+            fps={timeline.fps}
+            playerRef={playerRef}
+          />
         </div>
       </div>
     </div>

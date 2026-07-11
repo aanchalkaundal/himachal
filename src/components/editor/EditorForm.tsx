@@ -7,6 +7,7 @@ import { MediaUpload } from "./MediaUpload";
 import { BackgroundSlidesPanel } from "./BackgroundSlidesPanel";
 import { AnchorPanel } from "./AnchorPanel";
 import { TEMPLATE_LIST } from "@/remotion/templates/registry";
+import { ACCEPT_IMAGE, ACCEPT_VIDEO, ACCEPT_AUDIO } from "@/lib/mediaType";
 import type { Resolution, Fps, AspectRatio, VideoFormat } from "@/types/project";
 
 // Every stack ends with Devanagari fallbacks so Hindi (मात्रा included) always
@@ -127,18 +128,18 @@ export function EditorForm() {
       {/* ---------- Media ---------- */}
       <SectionTitle>Media</SectionTitle>
       <div className="space-y-2">
-        <MediaUpload label="Logo (all scenes)" accept="image/*" kind="logo" value={p.media.logo} onChange={(v) => updateMedia({ logo: v })} />
+        <MediaUpload label="Logo (all scenes)" accept={ACCEPT_IMAGE} kind="logo" value={p.media.logo} onChange={(v) => updateMedia({ logo: v })} />
         <BackgroundSlidesPanel />
         <MediaUpload
           label={`Background Image · Scene ${sceneNumber}`}
-          accept="image/*"
+          accept={ACCEPT_IMAGE}
           kind="image"
           value={activeScene?.media?.backgroundImage}
           onChange={(v) => updateSceneMedia({ backgroundImage: v })}
         />
         <MediaUpload
           label={`Background Video · Scene ${sceneNumber}`}
-          accept="video/*"
+          accept={ACCEPT_VIDEO}
           kind="video"
           value={activeScene?.media?.backgroundVideo}
           onChange={(v) => updateSceneMedia({ backgroundVideo: v })}
@@ -146,14 +147,14 @@ export function EditorForm() {
         />
         <MediaUpload
           label="Thumbnail"
-          accept="image/*"
+          accept={ACCEPT_IMAGE}
           kind="image"
           value={p.media.thumbnail}
           onChange={(v) => updateMedia({ thumbnail: v })}
         />
         <MediaUpload
           label="Background Music"
-          accept="audio/*"
+          accept={ACCEPT_AUDIO}
           kind="audio"
           value={p.media.backgroundMusic}
           onChange={(v) => updateMedia({ backgroundMusic: v })}
@@ -161,7 +162,7 @@ export function EditorForm() {
         />
         <MediaUpload
           label="Intro Music"
-          accept="audio/*"
+          accept={ACCEPT_AUDIO}
           kind="audio"
           value={p.media.introMusic}
           onChange={(v) => updateMedia({ introMusic: v })}
@@ -169,7 +170,7 @@ export function EditorForm() {
         />
         <MediaUpload
           label="Outro Music"
-          accept="audio/*"
+          accept={ACCEPT_AUDIO}
           kind="audio"
           value={p.media.outroMusic}
           onChange={(v) => updateMedia({ outroMusic: v })}

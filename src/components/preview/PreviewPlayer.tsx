@@ -15,9 +15,13 @@ import { buildTimeline } from "@/lib/timeline/buildTimeline";
 export function PreviewPlayer({
   project,
   playerRef,
+  fit = false,
 }: {
   project: NewsProject;
   playerRef?: React.Ref<PlayerRef>;
+  /** When true, the player fits inside its container (letterboxed) instead of
+   * taking full width — lets the scene/audio timelines share the viewport. */
+  fit?: boolean;
 }) {
   const timeline = useMemo(() => buildTimeline(project), [project]);
   const inputProps = useMemo(() => ({ project }), [project]);
@@ -33,7 +37,11 @@ export function PreviewPlayer({
       compositionHeight={timeline.height}
       fps={timeline.fps}
       controls
-      style={{ width: "100%", borderRadius: 12, overflow: "hidden" }}
+      style={
+        fit
+          ? { width: "100%", height: "100%", borderRadius: 12, overflow: "hidden" }
+          : { width: "100%", borderRadius: 12, overflow: "hidden" }
+      }
     />
   );
 }

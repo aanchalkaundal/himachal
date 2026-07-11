@@ -14,6 +14,7 @@ import { LogoBadge } from "@/remotion/components/LogoBadge";
 import { SocialBar } from "@/remotion/components/SocialBar";
 import { Watermark } from "@/remotion/components/Watermark";
 import { AudioLayer } from "@/remotion/components/AudioLayer";
+import { AudioTimeline } from "@/remotion/components/AudioTimeline";
 import { NEWS_COMPOSITION_ID } from "@/remotion/constants";
 
 export { NEWS_COMPOSITION_ID };
@@ -139,7 +140,8 @@ export const NewsComposition: React.FC<{ project: NewsProject }> = ({ project })
           ))
         : null}
 
-      {/* 4. Audio */}
+      {/* 4. Audio — background/intro/outro mix + the audio timeline clips */}
+      <AudioTimeline clips={project.audioClips ?? []} master={Math.max(0, Math.min(1, project.audio.masterVolume))} />
       <AudioLayer
         project={project}
         totalDurationInFrames={timeline.totalDurationInFrames}

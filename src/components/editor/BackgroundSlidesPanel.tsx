@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import { useProjectStore } from "@/lib/store/projectStore";
 import { fileToDataUrl } from "@/lib/file";
 import { removeGreenScreen } from "@/lib/chromaKey";
+import { mediaKindFromFile, ACCEPT_IMAGE_VIDEO } from "@/lib/mediaType";
 import { createId } from "@/lib/defaults";
 import { assetManager } from "@/lib/assets/assetManager";
 import { Button } from "@/components/ui/primitives";
@@ -31,9 +32,9 @@ export function BackgroundSlidesPanel() {
   async function handleAdd(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     for (const file of files) {
-      const isVideo = file.type.startsWith("video/");
-      const isImage = file.type.startsWith("image/");
-      if (!isVideo && !isImage) continue;
+      const kind = mediaKindFromFile(file);
+      if (kind !== "image" && kind !== "video") continue;
+      const isVideo = kind === "video";
       const dataUrl = await fileToDataUrl(file);
       const src = assetManager.register(isVideo ? "video" : "image", dataUrl, file.name);
       const slide: BackgroundSlide = {
@@ -76,7 +77,7 @@ export function BackgroundSlidesPanel() {
             {slides.length > 0 ? ` · ${slides.length} item${slides.length > 1 ? "s" : ""} · ${totalSeconds.toFixed(1)}s total` : ""}
           </p>
         </div>
-        <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleAdd} />
+        <input ref={fileRef} type="file" accept={ACCEPT_IMAGE_VIDEO} multiple className="hidden" onChange={handleAdd} />
         <Button variant="outline" onClick={() => fileRef.current?.click()}>
           ＋ Add media
         </Button>
