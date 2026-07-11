@@ -8,6 +8,10 @@ out/
 # production
 build
 
+# desktop app (electron) build artifacts
+/dist
+/remotion-serve
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
