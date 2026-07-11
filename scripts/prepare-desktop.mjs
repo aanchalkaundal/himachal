@@ -29,4 +29,27 @@ copy(path.join(root, ".next", "static"), path.join(standalone, ".next", "static"
 copy(path.join(root, "public"), path.join(standalone, "public"), "public/");
 copy(path.join(root, "remotion-serve"), path.join(standalone, "remotion-serve"), "remotion bundle");
 
+// Next's file tracing misses Remotion's NATIVE binaries (the compositor .exe and
+// the headless-shell) because they're resolved at runtime, not statically
+// imported. Force-copy the full packages so rendering works in the packaged app.
+const remotionNM = path.join(root, "node_modules", "@remotion");
+if (fs.existsSync(remotionNM)) {
+  for (const name of fs.readdirSync(remotionNM)) {
+    // Platform compositor binaries (e.g. compositor-win32-x64-msvc/remotion.exe)
+    if (name.startsWith("compositor-")) {
+      copy(
+        path.join(remotionNM, name),
+        path.join(standalone, "node_modules", "@remotion", name),
+        `@remotion/${name} (native binary)`,
+      );
+    }
+  }
+}
+// The full renderer package (it dlopen's helpers + resolves the compositor/shell).
+copy(
+  path.join(root, "node_modules", "@remotion", "renderer"),
+  path.join(standalone, "node_modules", "@remotion", "renderer"),
+  "@remotion/renderer (full)",
+);
+
 console.log("✓ standalone bundle ready:", standalone);
