@@ -218,7 +218,7 @@ export function AudioTimelineBar({
   }
 
   const sel = clips.find((c) => c.id === selected) ?? null;
-  const ticks = Math.min(30, Math.max(4, Math.round(span))); // ruler labels
+  const interval = niceInterval(zoom); // seconds between ruler labels/gridlines
 
   return (
     <div className="mt-3 rounded-xl border border-surface-border bg-surface-raised/60 p-3">
@@ -242,6 +242,12 @@ export function AudioTimelineBar({
 
       {/* Horizontal-scrolling timeline: fixed px/second, so a long video scrolls
           instead of squeezing every clip into the panel width. */}
+      <div className="relative">
+        {clips.length === 0 ? (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center text-[11px] text-slate-600">
+            No audio. Click “＋ Add audio”, then drag to position • drag edges to trim • zoom with － ＋.
+          </div>
+        ) : null}
       <div ref={scrollRef} className="w-full overflow-x-auto overflow-y-hidden rounded-md border border-surface-border bg-surface">
         {/* Time ruler (click to seek) */}
         <div
@@ -277,12 +283,6 @@ export function AudioTimelineBar({
           {Array.from({ length: Math.floor(span / interval) + 1 }).map((_, i) => (
             <div key={`g${i}`} className="absolute top-0 bottom-0 border-l border-white/5" style={{ left: i * interval * zoom }} />
           ))}
-
-          {clips.length === 0 ? (
-            <div className="sticky left-0 flex h-full items-center justify-center text-[11px] text-slate-600" style={{ width: scrollRef.current?.clientWidth ?? "100%" }}>
-              No audio. Click “＋ Add audio”, then drag to position • drag edges to trim • zoom with － ＋.
-            </div>
-          ) : null}
 
           {clips.map((clip) => {
             const left = clip.startSeconds * zoom;
@@ -332,6 +332,7 @@ export function AudioTimelineBar({
             <div className="absolute -left-1 -top-0.5 h-2 w-2 rotate-45 bg-accent-soft" />
           </div>
         </div>
+      </div>
       </div>
 
       {/* Selected clip controls */}

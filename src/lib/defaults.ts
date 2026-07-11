@@ -61,8 +61,8 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
     activeSceneId: scene1.id,
     media: {},
     branding: {
-      channelName: "NEWS 24",
-      watermark: "NEWS 24",
+      channelName: "News Himachal",
+      watermark: "News Himachal",
       primaryColor: "#e11d2a",
       secondaryColor: "#0b1f3a",
       fontFamily: "Arial, Helvetica, 'Noto Sans Devanagari', 'Nirmala UI', 'Mangal', sans-serif",
