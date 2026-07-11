@@ -27,7 +27,28 @@ export function BackgroundSlidesPanel() {
     return active?.media?.backgroundSlides ?? NO_SLIDES;
   });
   const addBackgroundSlide = useProjectStore((s) => s.addBackgroundSlide);
+  const moveBackgroundSlide = useProjectStore((s) => s.moveBackgroundSlide);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  function addTextCard() {
+    const slide: BackgroundSlide = {
+      id: createId("slide"),
+      kind: "text",
+      src: "",
+      text: "Your text here",
+      textColor: "#ffffff",
+      bgColor: "#0b1f3a",
+      fontSize: 64,
+      align: "center",
+      cardStyle: "title",
+      durationSeconds: 4,
+      focalX: 50,
+      focalY: 50,
+      zoomSpeed: 0,
+    };
+    addBackgroundSlide(slide);
+  }
 
   async function handleAdd(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -77,10 +98,15 @@ export function BackgroundSlidesPanel() {
             {slides.length > 0 ? ` · ${slides.length} item${slides.length > 1 ? "s" : ""} · ${totalSeconds.toFixed(1)}s total` : ""}
           </p>
         </div>
-        <input ref={fileRef} type="file" accept={ACCEPT_IMAGE_VIDEO} multiple className="hidden" onChange={handleAdd} />
-        <Button variant="outline" onClick={() => fileRef.current?.click()}>
-          ＋ Add media
-        </Button>
+        <div className="flex items-center gap-2">
+          <input ref={fileRef} type="file" accept={ACCEPT_IMAGE_VIDEO} multiple className="hidden" onChange={handleAdd} />
+          <Button variant="outline" onClick={addTextCard}>
+            ＋ Text card
+          </Button>
+          <Button variant="outline" onClick={() => fileRef.current?.click()}>
+            ＋ Add media
+          </Button>
+        </div>
       </div>
 
       {overlayNeedsBase ? (
@@ -98,7 +124,33 @@ export function BackgroundSlidesPanel() {
       ) : (
         <div className="space-y-3">
           {slides.map((slide, i) => (
-            <SlideRow key={slide.id} slide={slide} index={i} count={slides.length} />
+            <div
+              key={slide.id}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                if (dragId && dragId !== slide.id) moveBackgroundSlide(dragId, i);
+                setDragId(null);
+              }}
+              className={`flex gap-1 rounded-md ${dragId === slide.id ? "opacity-50" : ""}`}
+            >
+              {/* Drag handle — reorder; the video plays in this order */}
+              <div
+                draggable
+                onDragStart={() => setDragId(slide.id)}
+                onDragEnd={() => setDragId(null)}
+                title="Drag to reorder"
+                className="flex w-5 shrink-0 cursor-grab items-center justify-center rounded bg-surface text-slate-600 hover:text-white active:cursor-grabbing"
+              >
+                ⠿
+              </div>
+              <div className="min-w-0 flex-1">
+                {slide.kind === "text" ? (
+                  <TextCardRow slide={slide} index={i} count={slides.length} />
+                ) : (
+                  <SlideRow slide={slide} index={i} count={slides.length} />
+                )}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -153,7 +205,7 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
         {/* Focal-point picker: click the media to aim the zoom. */}
         <div className="shrink-0">
           <div
-            className="relative h-24 w-40 cursor-crosshair overflow-hidden rounded bg-black"
+            className="relative h-20 w-32 cursor-crosshair overflow-hidden rounded bg-black"
             onClick={pickFocal}
             title="Click to set the zoom focal point"
           >
@@ -180,7 +232,7 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
         </div>
 
         {/* Controls */}
-        <div className="flex-1 space-y-2">
+        <div className="min-w-0 flex-1 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-300">
               {isVideo ? "Video" : "Image"} {index + 1}
@@ -258,6 +310,149 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
               Place on top (overlay)
               {slide.layer === "overlay" ? <span className="text-accent-soft"> ▲</span> : null}
             </span>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Editor row for a typed text card (no image/video). */
+function TextCardRow({ slide, index, count }: { slide: BackgroundSlide; index: number; count: number }) {
+  const update = useProjectStore((s) => s.updateBackgroundSlide);
+  const remove = useProjectStore((s) => s.removeBackgroundSlide);
+  const reorder = useProjectStore((s) => s.reorderBackgroundSlide);
+
+  return (
+    <div className="rounded-md border border-surface-border bg-surface-raised p-3">
+      <div className="flex gap-3">
+        {/* Live preview of the card */}
+        <div className="shrink-0">
+          <div
+            className="flex h-20 w-32 items-center justify-center overflow-hidden rounded p-2 text-center"
+            style={{ background: slide.bgColor || "transparent", color: slide.textColor || "#fff" }}
+          >
+            <span className="line-clamp-3 text-[11px] font-bold leading-tight">{slide.text || "…"}</span>
+          </div>
+          <div className="mt-1 text-center text-[10px] text-slate-500">text card preview</div>
+        </div>
+
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-300">
+              Text {index + 1}
+              {slide.layer === "overlay" ? (
+                <span className="ml-1 rounded bg-accent/20 px-1 text-[9px] text-accent-soft">OVERLAY</span>
+              ) : null}
+            </span>
+            <div className="flex items-center gap-1">
+              <IconBtn label="Move up" disabled={index === 0} onClick={() => reorder(slide.id, -1)}>↑</IconBtn>
+              <IconBtn label="Move down" disabled={index === count - 1} onClick={() => reorder(slide.id, 1)}>↓</IconBtn>
+              <button onClick={() => remove(slide.id)} className="rounded px-2 py-0.5 text-xs text-slate-500 hover:text-accent-soft">
+                Remove
+              </button>
+            </div>
+          </div>
+
+          <textarea
+            rows={2}
+            value={slide.text ?? ""}
+            placeholder="Type your text…"
+            onChange={(e) => update(slide.id, { text: e.target.value })}
+            className="w-full rounded border border-surface-border bg-surface px-2 py-1 text-sm text-white outline-none focus:border-accent-soft"
+          />
+
+          <label className="block">
+            <span className="text-[11px] text-slate-400">Style (professional presets)</span>
+            <select
+              value={slide.cardStyle ?? "title"}
+              onChange={(e) => update(slide.id, { cardStyle: e.target.value as NonNullable<BackgroundSlide["cardStyle"]> })}
+              className="mt-1 w-full rounded border border-surface-border bg-surface px-2 py-1 text-sm text-white outline-none focus:border-accent-soft"
+            >
+              <option value="title">Title — big heading + accent underline</option>
+              <option value="banner">Banner — bold text in an accent strip</option>
+              <option value="quote">Quote — italic with accent quote bar</option>
+              <option value="lowerThird">Lower Third — bottom name-plate</option>
+              <option value="gradient">Gradient — gradient background</option>
+              <option value="highlight">Highlight — marker-style highlight</option>
+              <option value="plain">Plain — simple centered text</option>
+            </select>
+          </label>
+
+          <div className="grid grid-cols-3 gap-2">
+            <label className="block">
+              <span className="text-[11px] text-slate-400">Show for (s)</span>
+              <input
+                type="number"
+                min={0.5}
+                step={0.5}
+                value={slide.durationSeconds}
+                onChange={(e) => update(slide.id, { durationSeconds: Math.max(0.5, Number(e.target.value) || 0.5) })}
+                className="mt-1 w-full rounded border border-surface-border bg-surface px-2 py-1 text-sm text-white outline-none focus:border-accent-soft"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[11px] text-slate-400">Font size</span>
+              <input
+                type="number"
+                min={12}
+                step={2}
+                value={slide.fontSize ?? 64}
+                onChange={(e) => update(slide.id, { fontSize: Math.max(12, Number(e.target.value) || 64) })}
+                className="mt-1 w-full rounded border border-surface-border bg-surface px-2 py-1 text-sm text-white outline-none focus:border-accent-soft"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[11px] text-slate-400">Align</span>
+              <select
+                value={slide.align ?? "center"}
+                onChange={(e) => update(slide.id, { align: e.target.value as "left" | "center" | "right" })}
+                className="mt-1 w-full rounded border border-surface-border bg-surface px-2 py-1 text-sm text-white outline-none focus:border-accent-soft"
+              >
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <label className="flex items-center gap-2 text-[11px] text-slate-300">
+              Text
+              <input
+                type="color"
+                value={slide.textColor || "#ffffff"}
+                onChange={(e) => update(slide.id, { textColor: e.target.value })}
+                className="h-6 w-8 cursor-pointer rounded border border-surface-border bg-surface"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-[11px] text-slate-300">
+              Background
+              <input
+                type="color"
+                value={slide.bgColor && slide.bgColor !== "transparent" ? slide.bgColor : "#0b1f3a"}
+                onChange={(e) => update(slide.id, { bgColor: e.target.value })}
+                className="h-6 w-8 cursor-pointer rounded border border-surface-border bg-surface"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-[11px] text-slate-300">
+              <input
+                type="checkbox"
+                checked={slide.bgColor === "transparent"}
+                onChange={(e) => update(slide.id, { bgColor: e.target.checked ? "transparent" : "#0b1f3a" })}
+              />
+              No background (over media)
+            </label>
+          </div>
+
+          <label className="flex items-center gap-2 text-[11px] text-slate-300">
+            <input
+              type="checkbox"
+              checked={slide.layer === "overlay"}
+              onChange={(e) => update(slide.id, { layer: e.target.checked ? "overlay" : "base" })}
+            />
+            Place on top (overlay)
+            {slide.layer === "overlay" ? <span className="text-accent-soft"> ▲</span> : null}
           </label>
         </div>
       </div>

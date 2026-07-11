@@ -44,6 +44,7 @@ interface ProjectState {
   updateBackgroundSlide: (id: string, patch: Partial<BackgroundSlide>) => void;
   removeBackgroundSlide: (id: string) => void;
   reorderBackgroundSlide: (id: string, direction: -1 | 1) => void;
+  moveBackgroundSlide: (id: string, toIndex: number) => void;
 
   updateAudio: (patch: Partial<AudioSettings>) => void;
   updateSocial: (patch: Partial<SocialConfig>) => void;
@@ -243,6 +244,18 @@ export const useProjectStore = create<ProjectState>()(
           const j = i + direction;
           if (i < 0 || j < 0 || j >= arr.length) return {};
           [arr[i], arr[j]] = [arr[j], arr[i]];
+          return { current: touch(patchActiveMedia(s.current, (m) => ({ ...m, backgroundSlides: arr }))) };
+        }),
+      moveBackgroundSlide: (id, toIndex) =>
+        set((s) => {
+          const active = s.current.storyScenes.find((sc) => sc.id === s.current.activeSceneId);
+          const arr = [...(active?.media?.backgroundSlides ?? [])];
+          const from = arr.findIndex((sl) => sl.id === id);
+          if (from < 0) return {};
+          const to = Math.max(0, Math.min(arr.length - 1, toIndex));
+          if (to === from) return {};
+          const [item] = arr.splice(from, 1);
+          arr.splice(to, 0, item);
           return { current: touch(patchActiveMedia(s.current, (m) => ({ ...m, backgroundSlides: arr }))) };
         }),
       updateAudio: (patch) =>

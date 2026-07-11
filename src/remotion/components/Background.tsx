@@ -10,7 +10,87 @@ interface BackgroundProps {
   to: string;
   /** Dark overlay opacity (0..1) to keep text legible over imagery. */
   scrim?: number;
+  /** Accent color for text-card presets (bars, quote marks, highlight). */
+  accent?: string;
 }
+
+/**
+ * Professional text-card presets. Each renders the typed text in a distinct
+ * broadcast-standard layout, honoring the card's colors/size/alignment.
+ */
+const TextCard: React.FC<{ slide: BackgroundSlide; accent: string }> = ({ slide, accent }) => {
+  const text = slide.text ?? "";
+  const color = slide.textColor || "#ffffff";
+  const bg = slide.bgColor || "transparent";
+  const size = slide.fontSize || 64;
+  const align = slide.align || "center";
+  const justify = align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
+  const shadow = "0 4px 18px rgba(0,0,0,0.55)";
+  const style = slide.cardStyle || "plain";
+
+  switch (style) {
+    case "title":
+      return (
+        <AbsoluteFill style={{ background: bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 90px" }}>
+          <div style={{ color, fontSize: size, fontWeight: 900, letterSpacing: -0.5, lineHeight: 1.15, textAlign: "center", whiteSpace: "pre-wrap", textShadow: shadow }}>{text}</div>
+          <div style={{ marginTop: 30, width: 170, height: 8, borderRadius: 8, background: accent }} />
+        </AbsoluteFill>
+      );
+    case "banner":
+      return (
+        <AbsoluteFill style={{ background: bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: accent, padding: "30px 60px", maxWidth: "86%", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+            <div style={{ color, fontSize: size, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1.5, textAlign: "center", lineHeight: 1.15, whiteSpace: "pre-wrap" }}>{text}</div>
+          </div>
+        </AbsoluteFill>
+      );
+    case "quote":
+      return (
+        <AbsoluteFill style={{ background: bg, display: "flex", alignItems: "center", padding: "0 120px" }}>
+          <div style={{ display: "flex", gap: 32, alignItems: "stretch", maxWidth: "92%" }}>
+            <div style={{ width: 10, background: accent, borderRadius: 8 }} />
+            <div>
+              <div style={{ color: accent, fontSize: size * 1.7, fontWeight: 900, lineHeight: 0.6, fontFamily: "Georgia, serif" }}>&ldquo;</div>
+              <div style={{ color, fontSize: size, fontWeight: 700, fontStyle: "italic", lineHeight: 1.3, whiteSpace: "pre-wrap", marginTop: 10, textShadow: shadow }}>{text}</div>
+            </div>
+          </div>
+        </AbsoluteFill>
+      );
+    case "lowerThird":
+      return (
+        <AbsoluteFill style={{ background: bg === "transparent" ? "transparent" : bg }}>
+          <div style={{ position: "absolute", left: 80, bottom: 150, display: "flex", alignItems: "stretch", maxWidth: "70%" }}>
+            <div style={{ width: 10, background: accent, borderRadius: 8, marginRight: 16 }} />
+            <div style={{ background: "rgba(8,12,20,0.86)", backdropFilter: "blur(6px)", padding: "22px 34px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div style={{ color, fontSize: size * 0.7, fontWeight: 800, lineHeight: 1.2, whiteSpace: "pre-wrap" }}>{text}</div>
+            </div>
+          </div>
+        </AbsoluteFill>
+      );
+    case "gradient": {
+      const g1 = bg === "transparent" ? "#0b1f3a" : bg;
+      return (
+        <AbsoluteFill style={{ background: `linear-gradient(135deg, ${g1} 0%, #05070d 100%)`, display: "flex", alignItems: "center", justifyContent: justify, padding: "0 100px" }}>
+          <div style={{ color, fontSize: size, fontWeight: 900, lineHeight: 1.15, textAlign: align, whiteSpace: "pre-wrap", textShadow: shadow }}>{text}</div>
+        </AbsoluteFill>
+      );
+    }
+    case "highlight":
+      return (
+        <AbsoluteFill style={{ background: bg === "transparent" ? "transparent" : bg, display: "flex", alignItems: "center", justifyContent: justify, padding: "0 90px" }}>
+          <div style={{ fontSize: size, fontWeight: 900, lineHeight: 1.55, textAlign: align, maxWidth: "100%" }}>
+            <span style={{ background: accent, color, padding: "6px 16px", WebkitBoxDecorationBreak: "clone", boxDecorationBreak: "clone" }}>{text}</span>
+          </div>
+        </AbsoluteFill>
+      );
+    default: // plain
+      return (
+        <AbsoluteFill style={{ background: bg, display: "flex", alignItems: "center", justifyContent: justify, padding: "0 90px" }}>
+          <div style={{ color, fontSize: size, fontWeight: 800, lineHeight: 1.25, textAlign: align, whiteSpace: "pre-wrap", textShadow: shadow, maxWidth: "100%" }}>{text}</div>
+        </AbsoluteFill>
+      );
+  }
+};
 
 /** Frames used for the cross-fade between slideshow images. */
 const SLIDE_FADE_FRAMES = 14;
@@ -23,7 +103,7 @@ const SLIDE_FADE_FRAMES = 14;
  * Deterministic: the visible slide and its zoom are pure functions of the frame,
  * so the live preview and the server export are identical.
  */
-const SlideShow: React.FC<{ slides: BackgroundSlide[] }> = ({ slides }) => {
+const SlideShow: React.FC<{ slides: BackgroundSlide[]; accent: string }> = ({ slides, accent }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -69,7 +149,9 @@ const SlideShow: React.FC<{ slides: BackgroundSlide[] }> = ({ slides }) => {
                 transformOrigin: `${slide.focalX}% ${slide.focalY}%`,
               }}
             >
-              {slide.kind === "video" ? (
+              {slide.kind === "text" ? (
+                <TextCard slide={slide} accent={accent} />
+              ) : slide.kind === "video" ? (
                 <OffthreadVideo
                   src={slide.src}
                   muted
@@ -100,7 +182,7 @@ const SlideShow: React.FC<{ slides: BackgroundSlide[] }> = ({ slides }) => {
  *   4. themed gradient
  * A scrim keeps foreground text readable regardless of the underlying media.
  */
-export const Background: React.FC<BackgroundProps> = ({ media, from, to, scrim = 0.35 }) => {
+export const Background: React.FC<BackgroundProps> = ({ media, from, to, scrim = 0.35, accent = "#e11d2a" }) => {
   const ken = useKenBurns();
   const slides = media.backgroundSlides ?? [];
   const baseSlides = slides.filter((s) => (s.layer ?? "base") === "base");
@@ -116,7 +198,7 @@ export const Background: React.FC<BackgroundProps> = ({ media, from, to, scrim =
       {media.backgroundVideo ? (
         <OffthreadVideo src={media.backgroundVideo} muted style={{ objectFit: "cover", width: "100%", height: "100%" }} />
       ) : baseSlides.length > 0 ? (
-        <SlideShow slides={baseSlides} />
+        <SlideShow slides={baseSlides} accent={accent} />
       ) : media.backgroundImage ? (
         <AbsoluteFill style={ken}>
           <Img src={media.backgroundImage} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
@@ -128,7 +210,7 @@ export const Background: React.FC<BackgroundProps> = ({ media, from, to, scrim =
 
       {/* Overlay layer — sits ABOVE the scrim (not dimmed), e.g. a green-screen
           subject composited over the background. */}
-      {overlaySlides.length > 0 ? <SlideShow slides={overlaySlides} /> : null}
+      {overlaySlides.length > 0 ? <SlideShow slides={overlaySlides} accent={accent} /> : null}
     </AbsoluteFill>
   );
 };

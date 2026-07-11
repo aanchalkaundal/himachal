@@ -59,7 +59,7 @@ export const SceneStage: React.FC<{ project: NewsProject; scene: TimelineScene; 
 
   return (
     <AbsoluteFill>
-      <Background media={media} from={theme.from} to={theme.to} scrim={theme.scrim} />
+      <Background media={media} from={theme.from} to={theme.to} scrim={theme.scrim} accent={theme.accent} />
       <AnchorLayer layer="background" anchors={anchors} scene={scene} />
       <AnchorLayer layer="desk" anchors={anchors} scene={scene} />
 

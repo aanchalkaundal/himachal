@@ -47,16 +47,30 @@ export interface NewsContent {
  */
 export interface BackgroundSlide {
   id: string;
-  /** "image" (default) or "video". */
-  kind?: "image" | "video";
+  /** "image" (default), "video", or "text" (a typed on-screen card). */
+  kind?: "image" | "video" | "text";
   /**
    * Compositing layer: "base" (default) plays in the background; "overlay" plays
    * ON TOP of the base — useful for a green-screen-removed subject over a
    * background. Base and overlay each run as their own sequence.
    */
   layer?: "base" | "overlay";
-  /** Image or video data/object URL (green-screen-removed version when `chromaKey`). */
+  /** Image or video data/object URL (empty for a text card). */
   src: string;
+
+  // --- text card fields (kind === "text") ---
+  /** The typed text to show. */
+  text?: string;
+  /** Text color (default white). */
+  textColor?: string;
+  /** Card background color; "transparent" shows the media/gradient behind. */
+  bgColor?: string;
+  /** Font size in the 1080p design space. */
+  fontSize?: number;
+  /** Text alignment. */
+  align?: "left" | "center" | "right";
+  /** Professional layout preset for the text card. */
+  cardStyle?: "plain" | "title" | "banner" | "quote" | "lowerThird" | "gradient" | "highlight";
   /** Whether the green screen has been removed (images only). */
   chromaKey?: boolean;
   /** Original (un-keyed) source, kept so chroma key can be toggled off. */
