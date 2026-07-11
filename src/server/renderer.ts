@@ -20,6 +20,13 @@ let bundlePromise: Promise<string> | null = null;
 
 function getBundle(): Promise<string> {
   if (!bundlePromise) {
+    // Packaged desktop app: use the pre-built Remotion bundle (no source / webpack
+    // needed at runtime). Set by the Electron main process.
+    const prebuilt = process.env.REMOTION_SERVE_DIR;
+    if (prebuilt && fs.existsSync(path.join(prebuilt, "index.html"))) {
+      bundlePromise = Promise.resolve(prebuilt);
+      return bundlePromise;
+    }
     const entryPoint = path.join(process.cwd(), "src", "remotion", "index.ts");
     bundlePromise = bundle({
       entryPoint,
