@@ -55,6 +55,44 @@ export function Editor() {
   const { width, height } = getDimensions(project.settings.resolution, project.settings.aspectRatio);
   const timeline = buildTimeline(project);
 
+  // Resizable editor panel width (only on wide screens).
+  const splitRef = React.useRef<HTMLDivElement>(null);
+  const [isWide, setIsWide] = React.useState(false);
+  const [formWidth, setFormWidth] = React.useState(420);
+
+  React.useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsWide(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    const saved = Number(localStorage.getItem("nvg-form-width"));
+    if (Number.isFinite(saved) && saved >= 300) setFormWidth(saved);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  function startResize(e: React.PointerEvent) {
+    e.preventDefault();
+    const left = splitRef.current?.getBoundingClientRect().left ?? 0;
+    function onMove(ev: PointerEvent) {
+      const w = Math.max(300, Math.min(900, ev.clientX - left));
+      setFormWidth(w);
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      try {
+        localStorage.setItem("nvg-form-width", String(Math.round(formWidthRef.current)));
+      } catch {
+        /* ignore */
+      }
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+  // Keep latest width for the pointerup persist without re-binding listeners.
+  const formWidthRef = React.useRef(formWidth);
+  formWidthRef.current = formWidth;
+
   // Seek the preview to a scene's start frame when its timeline card is clicked,
   // so pressing Play resumes from that scene.
   const playerRef = React.useRef<PlayerRef>(null);
@@ -90,14 +128,28 @@ export function Editor() {
         </div>
       ) : null}
 
-      <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:grid-cols-[420px_1fr] lg:overflow-hidden">
-        {/* Editor form */}
-        <div className="border-r border-surface-border p-5 lg:min-h-0 lg:overflow-hidden">
+      <div ref={splitRef} className="flex flex-1 flex-col lg:min-h-0 lg:flex-row lg:overflow-hidden">
+        {/* Editor form (resizable width on wide screens) */}
+        <div
+          className="border-b border-surface-border p-5 lg:min-h-0 lg:overflow-hidden lg:border-b-0 lg:border-r"
+          style={isWide ? { width: formWidth, flex: "0 0 auto" } : undefined}
+        >
           <EditorForm />
         </div>
 
+        {/* Drag divider to resize the panel */}
+        {isWide ? (
+          <div
+            onPointerDown={startResize}
+            title="Drag to resize"
+            className="group hidden w-1.5 shrink-0 cursor-col-resize items-center justify-center bg-surface-border hover:bg-accent lg:flex"
+          >
+            <div className="h-8 w-0.5 rounded bg-slate-600 group-hover:bg-white" />
+          </div>
+        ) : null}
+
         {/* Live preview — scene timeline, video (flexible), audio timeline all fit */}
-        <div className="scrollable flex flex-col bg-black/40 p-4 lg:min-h-0 lg:overflow-hidden">
+        <div className="scrollable flex flex-1 flex-col bg-black/40 p-4 lg:min-h-0 lg:overflow-hidden">
           {/* Horizontal scene timeline — add/select/reorder scenes above the video */}
           <SceneTimelineBar onSeek={seekToScene} />
           <div className="mb-1 flex items-center justify-between text-xs text-slate-500">

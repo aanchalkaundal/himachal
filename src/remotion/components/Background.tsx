@@ -128,9 +128,20 @@ const SlideShow: React.FC<{ slides: BackgroundSlide[]; accent: string }> = ({ sl
         // never "finished": it holds to the end.
         if (!isLast && local > dur) return null;
 
-        // Continuous zoom toward the focal point: +zoomSpeed% scale per second,
-        // measured from when this slide appeared — never reset mid-slide.
-        const scale = 1 + ((slide.zoomSpeed || 0) / 100) * (local / fps);
+        // Zoom toward the focal point at zoomSpeed %/second.
+        //  • Zoom IN  (zs > 0): starts fit (scale 1) → grows over time.
+        //  • Zoom OUT (zs < 0): starts zoomed-in → shrinks to fit (scale 1) exactly
+        //    at the end of this slide (so the image fits the display by the end).
+        const zs = slide.zoomSpeed || 0;
+        const rate = Math.abs(zs) / 100; // scale change per second
+        const localSec = local / fps;
+        let scale: number;
+        if (zs >= 0) {
+          scale = 1 + rate * localSec;
+        } else {
+          const totalOut = rate * (dur / fps); // how much it zooms out over the slide
+          scale = Math.max(1, 1 + totalOut - rate * localSec); // start 1+totalOut → 1 (never below fit)
+        }
 
         // Cross-fade: first slide starts fully visible; others fade in as the
         // previous one fades out. Non-last slides fade out at their end.
@@ -155,6 +166,7 @@ const SlideShow: React.FC<{ slides: BackgroundSlide[]; accent: string }> = ({ sl
                 <OffthreadVideo
                   src={slide.src}
                   muted
+                  playbackRate={slide.playbackRate && slide.playbackRate > 0 ? slide.playbackRate : 1}
                   style={{
                     objectFit: "cover",
                     width: "100%",

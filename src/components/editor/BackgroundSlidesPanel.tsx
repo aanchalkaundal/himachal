@@ -265,24 +265,72 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
             />
           </label>
 
-          {/* Zoom speed (optional for videos) */}
-          <label className="block">
-            <span className="flex items-center justify-between text-[11px] text-slate-400">
-              <span>Zoom speed{isVideo ? " (optional)" : ""}</span>
-              <span className="text-slate-500">
-                {slide.zoomSpeed === 0 ? "none" : `${slide.zoomSpeed > 0 ? "in" : "out"} · ${Math.abs(slide.zoomSpeed)}%/s`}
-              </span>
-            </span>
-            <input
-              type="range"
-              min={-20}
-              max={30}
-              step={1}
-              value={slide.zoomSpeed}
-              onChange={(e) => update(slide.id, { zoomSpeed: Number(e.target.value) })}
-              className="mt-1 w-full accent-accent"
-            />
-          </label>
+          {/* Playback speed (video only) */}
+          {isVideo ? (
+            <label className="block">
+              <span className="text-[11px] text-slate-400">Video speed</span>
+              <select
+                value={String(slide.playbackRate ?? 1)}
+                onChange={(e) => update(slide.id, { playbackRate: Number(e.target.value) })}
+                className="mt-1 w-full rounded border border-surface-border bg-surface px-2 py-1 text-sm text-white outline-none focus:border-accent-soft"
+              >
+                <option value="0.25">0.25× (slow-mo)</option>
+                <option value="0.5">0.5×</option>
+                <option value="0.75">0.75×</option>
+                <option value="1">1× (normal)</option>
+                <option value="1.25">1.25×</option>
+                <option value="1.5">1.5×</option>
+                <option value="2">2× (fast)</option>
+                <option value="3">3×</option>
+                <option value="4">4×</option>
+              </select>
+            </label>
+          ) : null}
+
+          {/* Zoom direction + speed (optional for videos) */}
+          {(() => {
+            const dir = slide.zoomSpeed > 0 ? "in" : slide.zoomSpeed < 0 ? "out" : "none";
+            const mag = Math.abs(slide.zoomSpeed) || 8;
+            const setDir = (d: "in" | "out" | "none") =>
+              update(slide.id, { zoomSpeed: d === "none" ? 0 : (d === "in" ? 1 : -1) * mag });
+            const ZBtn = ({ d, label }: { d: "in" | "out" | "none"; label: string }) => (
+              <button
+                onClick={() => setDir(d)}
+                className={`flex-1 rounded border px-2 py-1 text-[11px] ${
+                  dir === d ? "border-accent-soft bg-surface-raised text-white" : "border-surface-border text-slate-400 hover:text-white"
+                }`}
+              >
+                {label}
+              </button>
+            );
+            return (
+              <div>
+                <span className="text-[11px] text-slate-400">Zoom{isVideo ? " (optional)" : ""}</span>
+                <div className="mt-1 flex gap-1">
+                  <ZBtn d="in" label="🔍 Zoom in" />
+                  <ZBtn d="out" label="🔎 Zoom out" />
+                  <ZBtn d="none" label="None" />
+                </div>
+                {dir !== "none" ? (
+                  <label className="mt-2 block">
+                    <span className="flex items-center justify-between text-[11px] text-slate-500">
+                      <span>Speed</span>
+                      <span>{mag}%/s</span>
+                    </span>
+                    <input
+                      type="range"
+                      min={1}
+                      max={30}
+                      step={1}
+                      value={mag}
+                      onChange={(e) => update(slide.id, { zoomSpeed: (dir === "in" ? 1 : -1) * Number(e.target.value) })}
+                      className="mt-1 w-full accent-accent"
+                    />
+                  </label>
+                ) : null}
+              </div>
+            );
+          })()}
 
           {/* Green screen removal (images baked, videos keyed live at render) */}
           <label className="flex items-center gap-2 text-[11px] text-slate-300">

@@ -71,6 +71,8 @@ export interface BackgroundSlide {
   align?: "left" | "center" | "right";
   /** Professional layout preset for the text card. */
   cardStyle?: "plain" | "title" | "banner" | "quote" | "lowerThird" | "gradient" | "highlight";
+  /** Video playback speed (1 = normal). Only used for video slides. */
+  playbackRate?: number;
   /** Whether the green screen has been removed (images only). */
   chromaKey?: boolean;
   /** Original (un-keyed) source, kept so chroma key can be toggled off. */
