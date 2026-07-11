@@ -75,7 +75,7 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
         "Stay tuned for the latest updates",
         "More details to follow shortly",
       ],
-      speed: 150,
+      speed: 300,
     },
     audio: {
       masterVolume: 1,
