@@ -201,38 +201,36 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
 
   return (
     <div className="rounded-md border border-surface-border bg-surface-raised p-3">
-      <div className="flex gap-3">
-        {/* Focal-point picker: click the media to aim the zoom. */}
-        <div className="shrink-0">
+      <div className="space-y-2">
+        {/* Focal-point picker: full-width preview (scales with the panel width). */}
+        <div
+          className="relative aspect-video w-full cursor-crosshair overflow-hidden rounded bg-black"
+          onClick={pickFocal}
+          title="Click to set the zoom focal point"
+        >
+          {isVideo ? (
+            <video src={slide.src} muted playsInline className="h-full w-full object-cover" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={slide.src} alt={`Slide ${index + 1}`} className="h-full w-full object-cover" />
+          )}
+          {/* Crosshair marker at the focal point */}
           <div
-            className="relative h-20 w-32 cursor-crosshair overflow-hidden rounded bg-black"
-            onClick={pickFocal}
-            title="Click to set the zoom focal point"
-          >
-            {isVideo ? (
-              <video src={slide.src} muted playsInline className="h-full w-full object-cover" />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={slide.src} alt={`Slide ${index + 1}`} className="h-full w-full object-cover" />
-            )}
-            {/* Crosshair marker at the focal point */}
-            <div
-              className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
-              style={{ left: `${slide.focalX}%`, top: `${slide.focalY}%`, boxShadow: "0 0 0 1px rgba(0,0,0,0.6)" }}
-            />
-            {isVideo ? (
-              <span className="absolute left-1 top-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">
-                ▶ VIDEO
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-1 text-center text-[10px] text-slate-500">
-            focus {slide.focalX}%, {slide.focalY}% — click to move
-          </div>
+            className="pointer-events-none absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+            style={{ left: `${slide.focalX}%`, top: `${slide.focalY}%`, boxShadow: "0 0 0 1px rgba(0,0,0,0.6)" }}
+          />
+          {isVideo ? (
+            <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 text-[10px] font-bold text-white">
+              ▶ VIDEO
+            </span>
+          ) : null}
+        </div>
+        <div className="text-center text-[10px] text-slate-500">
+          focus {slide.focalX}%, {slide.focalY}% — click to move
         </div>
 
-        {/* Controls */}
-        <div className="min-w-0 flex-1 space-y-2">
+        {/* Controls (below the preview) */}
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-300">
               {isVideo ? "Video" : "Image"} {index + 1}
@@ -320,7 +318,7 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
                     <input
                       type="range"
                       min={1}
-                      max={30}
+                      max={100}
                       step={1}
                       value={mag}
                       onChange={(e) => update(slide.id, { zoomSpeed: (dir === "in" ? 1 : -1) * Number(e.target.value) })}
@@ -373,19 +371,17 @@ function TextCardRow({ slide, index, count }: { slide: BackgroundSlide; index: n
 
   return (
     <div className="rounded-md border border-surface-border bg-surface-raised p-3">
-      <div className="flex gap-3">
-        {/* Live preview of the card */}
-        <div className="shrink-0">
-          <div
-            className="flex h-20 w-32 items-center justify-center overflow-hidden rounded p-2 text-center"
-            style={{ background: slide.bgColor || "transparent", color: slide.textColor || "#fff" }}
-          >
-            <span className="line-clamp-3 text-[11px] font-bold leading-tight">{slide.text || "…"}</span>
-          </div>
-          <div className="mt-1 text-center text-[10px] text-slate-500">text card preview</div>
+      <div className="space-y-2">
+        {/* Live preview of the card — full width, scales with the panel. */}
+        <div
+          className="flex aspect-video w-full items-center justify-center overflow-hidden rounded p-4 text-center"
+          style={{ background: slide.bgColor || "transparent", color: slide.textColor || "#fff" }}
+        >
+          <span className="line-clamp-4 text-sm font-bold leading-tight">{slide.text || "…"}</span>
         </div>
+        <div className="text-center text-[10px] text-slate-500">text card preview</div>
 
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-300">
               Text {index + 1}
