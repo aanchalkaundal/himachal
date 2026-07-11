@@ -2951,8 +2951,36 @@ const SCENE_REGISTRY = {
 
 
 
+const TextCard = ({ slide, accent }) => {
+  const text = slide.text ?? "";
+  const color = slide.textColor || "#ffffff";
+  const bg = slide.bgColor || "transparent";
+  const size = slide.fontSize || 64;
+  const align = slide.align || "center";
+  const justify = align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center";
+  const shadow = "0 4px 18px rgba(0,0,0,0.55)";
+  const style = slide.cardStyle || "plain";
+  switch (style) {
+    case "title":
+      return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 90px" } }, /* @__PURE__ */ react.createElement("div", { style: { color, fontSize: size, fontWeight: 900, letterSpacing: -0.5, lineHeight: 1.15, textAlign: "center", whiteSpace: "pre-wrap", textShadow: shadow } }, text), /* @__PURE__ */ react.createElement("div", { style: { marginTop: 30, width: 170, height: 8, borderRadius: 8, background: accent } }));
+    case "banner":
+      return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: bg, display: "flex", alignItems: "center", justifyContent: "center" } }, /* @__PURE__ */ react.createElement("div", { style: { background: accent, padding: "30px 60px", maxWidth: "86%", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" } }, /* @__PURE__ */ react.createElement("div", { style: { color, fontSize: size, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1.5, textAlign: "center", lineHeight: 1.15, whiteSpace: "pre-wrap" } }, text)));
+    case "quote":
+      return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: bg, display: "flex", alignItems: "center", padding: "0 120px" } }, /* @__PURE__ */ react.createElement("div", { style: { display: "flex", gap: 32, alignItems: "stretch", maxWidth: "92%" } }, /* @__PURE__ */ react.createElement("div", { style: { width: 10, background: accent, borderRadius: 8 } }), /* @__PURE__ */ react.createElement("div", null, /* @__PURE__ */ react.createElement("div", { style: { color: accent, fontSize: size * 1.7, fontWeight: 900, lineHeight: 0.6, fontFamily: "Georgia, serif" } }, "\u201C"), /* @__PURE__ */ react.createElement("div", { style: { color, fontSize: size, fontWeight: 700, fontStyle: "italic", lineHeight: 1.3, whiteSpace: "pre-wrap", marginTop: 10, textShadow: shadow } }, text))));
+    case "lowerThird":
+      return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: bg === "transparent" ? "transparent" : bg } }, /* @__PURE__ */ react.createElement("div", { style: { position: "absolute", left: 80, bottom: 150, display: "flex", alignItems: "stretch", maxWidth: "70%" } }, /* @__PURE__ */ react.createElement("div", { style: { width: 10, background: accent, borderRadius: 8, marginRight: 16 } }), /* @__PURE__ */ react.createElement("div", { style: { background: "rgba(8,12,20,0.86)", backdropFilter: "blur(6px)", padding: "22px 34px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)" } }, /* @__PURE__ */ react.createElement("div", { style: { color, fontSize: size * 0.7, fontWeight: 800, lineHeight: 1.2, whiteSpace: "pre-wrap" } }, text))));
+    case "gradient": {
+      const g1 = bg === "transparent" ? "#0b1f3a" : bg;
+      return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `linear-gradient(135deg, ${g1} 0%, #05070d 100%)`, display: "flex", alignItems: "center", justifyContent: justify, padding: "0 100px" } }, /* @__PURE__ */ react.createElement("div", { style: { color, fontSize: size, fontWeight: 900, lineHeight: 1.15, textAlign: align, whiteSpace: "pre-wrap", textShadow: shadow } }, text));
+    }
+    case "highlight":
+      return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: bg === "transparent" ? "transparent" : bg, display: "flex", alignItems: "center", justifyContent: justify, padding: "0 90px" } }, /* @__PURE__ */ react.createElement("div", { style: { fontSize: size, fontWeight: 900, lineHeight: 1.55, textAlign: align, maxWidth: "100%" } }, /* @__PURE__ */ react.createElement("span", { style: { background: accent, color, padding: "6px 16px", WebkitBoxDecorationBreak: "clone", boxDecorationBreak: "clone" } }, text)));
+    default:
+      return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: bg, display: "flex", alignItems: "center", justifyContent: justify, padding: "0 90px" } }, /* @__PURE__ */ react.createElement("div", { style: { color, fontSize: size, fontWeight: 800, lineHeight: 1.25, textAlign: align, whiteSpace: "pre-wrap", textShadow: shadow, maxWidth: "100%" } }, text));
+  }
+};
 const SLIDE_FADE_FRAMES = 14;
-const SlideShow = ({ slides }) => {
+const SlideShow = ({ slides, accent }) => {
   const frame = (0,esm.useCurrentFrame)();
   const { fps } = (0,esm.useVideoConfig)();
   const durations = slides.map((s) => Math.max(1, Math.round((s.durationSeconds || 1) * fps)));
@@ -2964,7 +2992,16 @@ const SlideShow = ({ slides }) => {
     const local = frame - start;
     if (local < 0) return null;
     if (!isLast && local > dur) return null;
-    const scale = 1 + (slide.zoomSpeed || 0) / 100 * (local / fps);
+    const zs = slide.zoomSpeed || 0;
+    const rate = Math.abs(zs) / 100;
+    const localSec = local / fps;
+    let scale;
+    if (zs >= 0) {
+      scale = 1 + rate * localSec;
+    } else {
+      const totalOut = rate * (dur / fps);
+      scale = Math.max(1, 1 + totalOut - rate * localSec);
+    }
     const fadeIn = i === 0 ? 1 : (0,esm.interpolate)(local, [0, SLIDE_FADE_FRAMES], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     const fadeOut = isLast ? 1 : (0,esm.interpolate)(local, [dur - SLIDE_FADE_FRAMES, dur], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
     const opacity = Math.min(fadeIn, fadeOut);
@@ -2977,11 +3014,12 @@ const SlideShow = ({ slides }) => {
           transformOrigin: `${slide.focalX}% ${slide.focalY}%`
         }
       },
-      slide.kind === "video" ? /* @__PURE__ */ react.createElement(
+      slide.kind === "text" ? /* @__PURE__ */ react.createElement(TextCard, { slide, accent }) : slide.kind === "video" ? /* @__PURE__ */ react.createElement(
         esm.OffthreadVideo,
         {
           src: slide.src,
           muted: true,
+          playbackRate: slide.playbackRate && slide.playbackRate > 0 ? slide.playbackRate : 1,
           style: {
             objectFit: "cover",
             width: "100%",
@@ -2994,12 +3032,12 @@ const SlideShow = ({ slides }) => {
     ));
   }));
 };
-const Background = ({ media, from, to, scrim = 0.35 }) => {
+const Background = ({ media, from, to, scrim = 0.35, accent = "#e11d2a" }) => {
   const ken = useKenBurns();
   const slides = media.backgroundSlides ?? [];
   const baseSlides = slides.filter((s) => (s.layer ?? "base") === "base");
   const overlaySlides = slides.filter((s) => s.layer === "overlay");
-  return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, null, /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` } }), media.backgroundVideo ? /* @__PURE__ */ react.createElement(esm.OffthreadVideo, { src: media.backgroundVideo, muted: true, style: { objectFit: "cover", width: "100%", height: "100%" } }) : baseSlides.length > 0 ? /* @__PURE__ */ react.createElement(SlideShow, { slides: baseSlides }) : media.backgroundImage ? /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: ken }, /* @__PURE__ */ react.createElement(esm.Img, { src: media.backgroundImage, style: { objectFit: "cover", width: "100%", height: "100%" } })) : null, /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `rgba(0,0,0,${scrim})` } }), overlaySlides.length > 0 ? /* @__PURE__ */ react.createElement(SlideShow, { slides: overlaySlides }) : null);
+  return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, null, /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` } }), media.backgroundVideo ? /* @__PURE__ */ react.createElement(esm.OffthreadVideo, { src: media.backgroundVideo, muted: true, style: { objectFit: "cover", width: "100%", height: "100%" } }) : baseSlides.length > 0 ? /* @__PURE__ */ react.createElement(SlideShow, { slides: baseSlides, accent }) : media.backgroundImage ? /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: ken }, /* @__PURE__ */ react.createElement(esm.Img, { src: media.backgroundImage, style: { objectFit: "cover", width: "100%", height: "100%" } })) : null, /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `rgba(0,0,0,${scrim})` } }), overlaySlides.length > 0 ? /* @__PURE__ */ react.createElement(SlideShow, { slides: overlaySlides, accent }) : null);
 };
 
 ;// ./src/remotion/components/NewsTicker.tsx
@@ -3421,7 +3459,7 @@ const SceneStage = ({
   const descItems = descriptionToItems((_d = (_c = scene.data) == null ? void 0 : _c.storyScene) == null ? void 0 : _d.content.description);
   const items = descItems.length > 0 ? descItems : project.ticker.items;
   const sceneTicker = { ...project.ticker, items };
-  return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, null, /* @__PURE__ */ react.createElement(Background, { media, from: theme.from, to: theme.to, scrim: theme.scrim }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "background", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "desk", anchors, scene }), /* @__PURE__ */ react.createElement(Scene, { project, scene, theme }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "middle", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "front", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "overlay", anchors, scene }), /* @__PURE__ */ react.createElement(NewsTicker, { ticker: sceneTicker, accent: theme.accent }));
+  return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, null, /* @__PURE__ */ react.createElement(Background, { media, from: theme.from, to: theme.to, scrim: theme.scrim, accent: theme.accent }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "background", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "desk", anchors, scene }), /* @__PURE__ */ react.createElement(Scene, { project, scene, theme }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "middle", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "front", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "overlay", anchors, scene }), /* @__PURE__ */ react.createElement(NewsTicker, { ticker: sceneTicker, accent: theme.accent }));
 };
 
 ;// ./src/remotion/components/LogoBadge.tsx
