@@ -145,15 +145,10 @@ const SlideItem: React.FC<{ slide: BackgroundSlide; local: number; dur: number; 
               style={{ objectFit: "cover", width: "100%", height: "100%" }}
             />
           );
-          // Loop via OffthreadVideo + <Loop> (memory-efficient — frames are
-          // extracted, the whole clip isn't held in RAM). The clip restarts every
-          // videoLen frames to fill a longer slide instead of freezing.
+          // Loop via OffthreadVideo + <Loop> — render-safe & memory-efficient. The
+          // clip restarts every videoLen frames to fill a longer slide.
           const loopLen = Math.max(1, Math.round(((slide.videoDurationSeconds || 0) / rateFor) * fps));
-          return slide.loop && slide.videoDurationSeconds ? (
-            <Loop durationInFrames={loopLen}>{video}</Loop>
-          ) : (
-            video
-          );
+          return slide.loop && slide.videoDurationSeconds ? <Loop durationInFrames={loopLen}>{video}</Loop> : video;
         })()
       ) : (
         <Img src={slide.src} style={{ objectFit: "cover", width: "100%", height: "100%" }} />

@@ -309,7 +309,7 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
                 checked={!!slide.loop}
                 onChange={(e) => update(slide.id, { loop: e.target.checked })}
               />
-              <span>Loop video (repeat to fill the slide duration)</span>
+              <span>Loop video (repeat to fill the duration)</span>
             </label>
           ) : null}
 
