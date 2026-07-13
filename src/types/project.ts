@@ -76,6 +76,8 @@ export interface BackgroundSlide {
   playbackRate?: number;
   /** Loop the video to fill the slide duration (instead of freezing at its end). */
   loop?: boolean;
+  /** The video's own length in seconds (for looping). */
+  videoDurationSeconds?: number;
   /** Whether the green screen has been removed (images only). */
   chromaKey?: boolean;
   /** Original (un-keyed) source, kept so chroma key can be toggled off. */

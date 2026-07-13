@@ -71,12 +71,13 @@ export function BackgroundSlidesPanel() {
       const src = assetManager.register(isVideo ? "video" : "image", dataUrl, file.name);
       // Match a video slide's duration to the clip's real length so it doesn't
       // freeze on the last frame partway through the slide.
-      const durationSeconds = isVideo ? await getVideoDuration(dataUrl) : 4;
+      const vidLen = isVideo ? await getVideoDuration(dataUrl) : 0;
       const slide: BackgroundSlide = {
         id: createId("slide"),
         kind: isVideo ? "video" : "image",
         src,
-        durationSeconds,
+        durationSeconds: isVideo ? vidLen : 4,
+        videoDurationSeconds: isVideo ? vidLen : undefined,
         focalX: 50,
         focalY: 50,
         // Zoom is optional for video → default off (0); images get a gentle push.
@@ -308,7 +309,7 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
                 checked={!!slide.loop}
                 onChange={(e) => update(slide.id, { loop: e.target.checked })}
               />
-              <span>Loop video (ping-pong: forward → reverse, no jump cut)</span>
+              <span>Loop video (repeat to fill the slide duration)</span>
             </label>
           ) : null}
 
