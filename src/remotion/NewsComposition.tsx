@@ -93,6 +93,7 @@ export const NewsComposition: React.FC<{ project: NewsProject }> = ({ project })
       <svg width={0} height={0} style={{ position: "absolute" }} aria-hidden>
         <defs>
           <filter id="nvg-greenscreen" colorInterpolationFilters="sRGB">
+            {/* 1. Put a "greenness" score (G − (R+B)/2) into alpha; keep RGB. */}
             <feColorMatrix
               type="matrix"
               values="1 0 0 0 0
@@ -101,10 +102,22 @@ export const NewsComposition: React.FC<{ project: NewsProject }> = ({ project })
                       -0.5 1 -0.5 0 0"
               result="green"
             />
-            {/* Keep low-greenness pixels (alpha 1), remove high-greenness (alpha 0). */}
-            <feComponentTransfer in="green">
-              <feFuncA type="discrete" tableValues="1 1 1 1 1 1 0 0 0 0" />
+            {/* 2. Threshold with a SOFT edge: strong green (≳0.4) → transparent,
+                   the ~0.3 fringe band → semi-transparent so edges blend instead of
+                   showing a hard green rim. Skin (greenness ≈ 0) stays opaque. */}
+            <feComponentTransfer in="green" result="mask">
+              <feFuncA type="discrete" tableValues="1 1 1 0.5 0 0 0 0 0 0" />
             </feComponentTransfer>
+            {/* 3. Spill suppression: pull the green channel toward the R/B average,
+                   killing the green tint on the kept edge pixels. */}
+            <feColorMatrix
+              in="mask"
+              type="matrix"
+              values="1 0 0 0 0
+                      0.2 0.6 0.2 0 0
+                      0 0 1 0 0
+                      0 0 0 1 0"
+            />
           </filter>
         </defs>
       </svg>

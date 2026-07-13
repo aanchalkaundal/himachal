@@ -355,7 +355,7 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
             />
             <span>
               Place on top (overlay)
-              {slide.layer === "overlay" ? <span className="text-accent-soft"> ▲</span> : null}
+             
             </span>
           </label>
         </div>
@@ -497,7 +497,7 @@ function TextCardRow({ slide, index, count }: { slide: BackgroundSlide; index: n
               onChange={(e) => update(slide.id, { layer: e.target.checked ? "overlay" : "base" })}
             />
             Place on top (overlay)
-            {slide.layer === "overlay" ? <span className="text-accent-soft"> ▲</span> : null}
+           
           </label>
         </div>
       </div>

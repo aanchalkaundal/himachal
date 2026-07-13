@@ -119,8 +119,19 @@ const SlideItem: React.FC<{ slide: BackgroundSlide; local: number; dur: number; 
     scale = Math.max(1, 1 + totalOut - rate * localSec);
   }
 
+  const isVideoChroma = slide.kind === "video" && slide.chromaKey;
   return (
-    <AbsoluteFill style={{ transform: `scale(${scale})`, transformOrigin: `${slide.focalX}% ${slide.focalY}%` }}>
+    <AbsoluteFill
+      style={{
+        // Filter + scale on ONE element (no nested layer) and GPU-composited via
+        // translateZ(0) — avoids the subpixel "shake"/shimmer during zoom.
+        transform: `scale(${scale}) translateZ(0)`,
+        transformOrigin: `${slide.focalX}% ${slide.focalY}%`,
+        filter: isVideoChroma ? "url(#nvg-greenscreen)" : undefined,
+        willChange: "transform",
+        backfaceVisibility: "hidden",
+      }}
+    >
       {slide.kind === "text" ? (
         <TextCard slide={slide} accent={accent} />
       ) : slide.kind === "video" ? (
@@ -128,12 +139,7 @@ const SlideItem: React.FC<{ slide: BackgroundSlide; local: number; dur: number; 
           src={slide.src}
           muted
           playbackRate={slide.playbackRate && slide.playbackRate > 0 ? slide.playbackRate : 1}
-          style={{
-            objectFit: "cover",
-            width: "100%",
-            height: "100%",
-            filter: slide.chromaKey ? "url(#nvg-greenscreen)" : undefined,
-          }}
+          style={{ objectFit: "cover", width: "100%", height: "100%" }}
         />
       ) : (
         <Img src={slide.src} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
