@@ -203,7 +203,32 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
   }
 
   const isVideo = slide.kind === "video";
+  const isOverlay = slide.layer === "overlay";
   const [keying, setKeying] = useState(false);
+
+  // Drag the preview to displace an overlay left/right/up/down.
+  function startPositionDrag(e: React.PointerEvent) {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origX = slide.offsetX || 0;
+    const origY = slide.offsetY || 0;
+    function onMove(ev: PointerEvent) {
+      const dx = ((ev.clientX - startX) / rect.width) * 100;
+      const dy = ((ev.clientY - startY) / rect.height) * 100;
+      update(slide.id, {
+        offsetX: clamp(Math.round(origX + dx), -100, 100),
+        offsetY: clamp(Math.round(origY + dy), -100, 100),
+      });
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
 
   async function toggleGreenScreen(on: boolean) {
     // Video: keyed live at render via an SVG chroma-key filter (no baking).
@@ -226,175 +251,148 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
     }
   }
 
+  const offX = slide.offsetX || 0;
+  const offY = slide.offsetY || 0;
+  const size = slide.size ?? 1;
+  const zdir = slide.zoomSpeed > 0 ? "in" : slide.zoomSpeed < 0 ? "out" : "none";
+  const zmag = Math.abs(slide.zoomSpeed) || 8;
+  const setZoomDir = (d: "in" | "out" | "none") =>
+    update(slide.id, { zoomSpeed: d === "none" ? 0 : (d === "in" ? 1 : -1) * zmag });
+
   return (
-    <div className="rounded-md border border-surface-border bg-surface-raised p-3">
-      <div className="space-y-2">
-        {/* Focal-point picker: full-width preview (scales with the panel width). */}
-        <div
-          className="relative aspect-video w-full cursor-crosshair overflow-hidden rounded bg-black"
-          onClick={pickFocal}
-          title="Click to set the zoom focal point"
-        >
-          {isVideo ? (
-            <video src={slide.src} muted playsInline className="h-full w-full object-cover" />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={slide.src} alt={`Slide ${index + 1}`} className="h-full w-full object-cover" />
-          )}
-          {/* Crosshair marker at the focal point */}
+    <div className="rounded-md border border-surface-border bg-surface-raised p-2">
+      {/* Header */}
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-300">
+          {isVideo ? "Video" : "Image"} {index + 1}
+          {isOverlay ? <span className="ml-1 rounded bg-accent/20 px-1 text-[9px] text-accent-soft">OVERLAY</span> : null}
+        </span>
+        <div className="flex items-center gap-1">
+          <IconBtn label="Move up" disabled={index === 0} onClick={() => reorder(slide.id, -1)}>↑</IconBtn>
+          <IconBtn label="Move down" disabled={index === count - 1} onClick={() => reorder(slide.id, 1)}>↓</IconBtn>
+          <button onClick={handleRemove} className="rounded px-2 py-0.5 text-xs text-slate-500 hover:text-accent-soft">Remove</button>
+        </div>
+      </div>
+
+      {/* Preview — overlays drag to move; others click to set the zoom focal point. */}
+      <div
+        className={`relative aspect-video w-full overflow-hidden rounded bg-black ${isOverlay ? "cursor-move" : "cursor-crosshair"}`}
+        onClick={isOverlay ? undefined : pickFocal}
+        onPointerDown={isOverlay ? startPositionDrag : undefined}
+        title={isOverlay ? "Drag to move the overlay" : "Click to set the zoom focal point"}
+      >
+        {isVideo ? (
+          <video src={slide.src} muted playsInline className="h-full w-full object-cover" style={{ transform: `translate(${offX}%, ${offY}%) scale(${size})` }} />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={slide.src} alt={`Slide ${index + 1}`} className="h-full w-full object-cover" style={{ transform: `translate(${offX}%, ${offY}%) scale(${size})` }} />
+        )}
+        {!isOverlay ? (
           <div
-            className="pointer-events-none absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+            className="pointer-events-none absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white"
             style={{ left: `${slide.focalX}%`, top: `${slide.focalY}%`, boxShadow: "0 0 0 1px rgba(0,0,0,0.6)" }}
           />
-          {isVideo ? (
-            <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 text-[10px] font-bold text-white">
-              ▶ VIDEO
-            </span>
-          ) : null}
-        </div>
-        <div className="text-center text-[10px] text-slate-500">
-          focus {slide.focalX}%, {slide.focalY}% — click to move
-        </div>
+        ) : null}
+        <span className="absolute left-1 top-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">
+          {isVideo ? "▶ VIDEO" : "IMG"}{isOverlay ? " · drag to move" : ""}
+        </span>
+      </div>
 
-        {/* Controls (below the preview) */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-300">
-              {isVideo ? "Video" : "Image"} {index + 1}
-              {slide.layer === "overlay" ? (
-                <span className="ml-1 rounded bg-accent/20 px-1 text-[9px] text-accent-soft">OVERLAY</span>
-              ) : null}
-            </span>
-            <div className="flex items-center gap-1">
-              <IconBtn label="Move up" disabled={index === 0} onClick={() => reorder(slide.id, -1)}>↑</IconBtn>
-              <IconBtn label="Move down" disabled={index === count - 1} onClick={() => reorder(slide.id, 1)}>↓</IconBtn>
-              <button
-                onClick={handleRemove}
-                className="rounded px-2 py-0.5 text-xs text-slate-500 hover:text-accent-soft"
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-
-          {/* Duration */}
+      {/* Compact controls in rows */}
+      <div className="mt-2 space-y-1.5 text-[11px]">
+        <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="text-[11px] text-slate-400">Show for (seconds)</span>
+            <span className="text-slate-400">Show for (s)</span>
             <input
               type="number"
               min={0.5}
               step={0.5}
               value={slide.durationSeconds}
               onChange={(e) => update(slide.id, { durationSeconds: Math.max(0.5, Number(e.target.value) || 0.5) })}
-              className="mt-1 w-full rounded border border-surface-border bg-surface px-2 py-1 text-sm text-white outline-none focus:border-accent-soft"
+              className="mt-0.5 w-full rounded border border-surface-border bg-surface px-2 py-1 text-white outline-none focus:border-accent-soft"
             />
           </label>
-
-          {/* Playback speed (video only) */}
           {isVideo ? (
             <label className="block">
-              <span className="text-[11px] text-slate-400">Video speed</span>
+              <span className="text-slate-400">Video speed</span>
               <select
                 value={String(slide.playbackRate ?? 1)}
                 onChange={(e) => update(slide.id, { playbackRate: Number(e.target.value) })}
-                className="mt-1 w-full rounded border border-surface-border bg-surface px-2 py-1 text-sm text-white outline-none focus:border-accent-soft"
+                className="mt-0.5 w-full rounded border border-surface-border bg-surface px-2 py-1 text-white outline-none focus:border-accent-soft"
               >
-                <option value="0.25">0.25× (slow-mo)</option>
+                <option value="0.25">0.25×</option>
                 <option value="0.5">0.5×</option>
                 <option value="0.75">0.75×</option>
-                <option value="1">1× (normal)</option>
-                <option value="1.25">1.25×</option>
+                <option value="1">1×</option>
                 <option value="1.5">1.5×</option>
-                <option value="2">2× (fast)</option>
-                <option value="3">3×</option>
+                <option value="2">2×</option>
                 <option value="4">4×</option>
               </select>
             </label>
           ) : null}
+        </div>
 
-          {/* Loop video (fill a longer duration without freezing) */}
+        {/* Zoom row */}
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-slate-400">Zoom</span>
+          <div className="flex flex-1 gap-1">
+            {(["in", "out", "none"] as const).map((d) => (
+              <button
+                key={d}
+                onClick={() => setZoomDir(d)}
+                className={`flex-1 rounded border px-1 py-1 ${zdir === d ? "border-accent-soft bg-surface text-white" : "border-surface-border text-slate-400 hover:text-white"}`}
+              >
+                {d === "in" ? "In" : d === "out" ? "Out" : "None"}
+              </button>
+            ))}
+          </div>
+          {zdir !== "none" ? (
+            <input
+              type="range"
+              min={1}
+              max={100}
+              step={1}
+              value={zmag}
+              title={`${zmag}%/s`}
+              onChange={(e) => update(slide.id, { zoomSpeed: (zdir === "in" ? 1 : -1) * Number(e.target.value) })}
+              className="w-20 accent-accent"
+            />
+          ) : null}
+        </div>
+
+        {/* Overlay position + size */}
+        {isOverlay ? (
+          <div className="grid grid-cols-3 gap-2">
+            <label className="block">
+              <span className="text-slate-400">← X → ({offX})</span>
+              <input type="range" min={-100} max={100} value={offX} onChange={(e) => update(slide.id, { offsetX: Number(e.target.value) })} className="w-full accent-accent" />
+            </label>
+            <label className="block">
+              <span className="text-slate-400">↑ Y ↓ ({offY})</span>
+              <input type="range" min={-100} max={100} value={offY} onChange={(e) => update(slide.id, { offsetY: Number(e.target.value) })} className="w-full accent-accent" />
+            </label>
+            <label className="block">
+              <span className="text-slate-400">Size ({size.toFixed(1)}×)</span>
+              <input type="range" min={0.3} max={2} step={0.05} value={size} onChange={(e) => update(slide.id, { size: Number(e.target.value) })} className="w-full accent-accent" />
+            </label>
+          </div>
+        ) : null}
+
+        {/* Toggles in one wrapping row */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5 text-slate-300">
           {isVideo ? (
-            <label className="flex items-center gap-2 text-[11px] text-slate-300">
-              <input
-                type="checkbox"
-                checked={!!slide.loop}
-                onChange={(e) => update(slide.id, { loop: e.target.checked })}
-              />
-              <span>Loop video (repeat to fill the duration)</span>
+            <label className="flex items-center gap-1.5">
+              <input type="checkbox" checked={!!slide.loop} onChange={(e) => update(slide.id, { loop: e.target.checked })} />
+              Loop
             </label>
           ) : null}
-
-          {/* Zoom direction + speed (optional for videos) */}
-          {(() => {
-            const dir = slide.zoomSpeed > 0 ? "in" : slide.zoomSpeed < 0 ? "out" : "none";
-            const mag = Math.abs(slide.zoomSpeed) || 8;
-            const setDir = (d: "in" | "out" | "none") =>
-              update(slide.id, { zoomSpeed: d === "none" ? 0 : (d === "in" ? 1 : -1) * mag });
-            const ZBtn = ({ d, label }: { d: "in" | "out" | "none"; label: string }) => (
-              <button
-                onClick={() => setDir(d)}
-                className={`flex-1 rounded border px-2 py-1 text-[11px] ${
-                  dir === d ? "border-accent-soft bg-surface-raised text-white" : "border-surface-border text-slate-400 hover:text-white"
-                }`}
-              >
-                {label}
-              </button>
-            );
-            return (
-              <div>
-                <span className="text-[11px] text-slate-400">Zoom{isVideo ? " (optional)" : ""}</span>
-                <div className="mt-1 flex gap-1">
-                  <ZBtn d="in" label="🔍 Zoom in" />
-                  <ZBtn d="out" label="🔎 Zoom out" />
-                  <ZBtn d="none" label="None" />
-                </div>
-                {dir !== "none" ? (
-                  <label className="mt-2 block">
-                    <span className="flex items-center justify-between text-[11px] text-slate-500">
-                      <span>Speed</span>
-                      <span>{mag}%/s</span>
-                    </span>
-                    <input
-                      type="range"
-                      min={1}
-                      max={100}
-                      step={1}
-                      value={mag}
-                      onChange={(e) => update(slide.id, { zoomSpeed: (dir === "in" ? 1 : -1) * Number(e.target.value) })}
-                      className="mt-1 w-full accent-accent"
-                    />
-                  </label>
-                ) : null}
-              </div>
-            );
-          })()}
-
-          {/* Green screen removal (images baked, videos keyed live at render) */}
-          <label className="flex items-center gap-2 text-[11px] text-slate-300">
-            <input
-              type="checkbox"
-              checked={!!slide.chromaKey}
-              disabled={keying}
-              onChange={(e) => toggleGreenScreen(e.target.checked)}
-            />
-            <span>
-              Remove green screen
-              {keying ? " — processing…" : slide.chromaKey ? " ✓" : ""}
-              {isVideo ? <span className="text-slate-600"> (live)</span> : null}
-            </span>
+          <label className="flex items-center gap-1.5">
+            <input type="checkbox" checked={!!slide.chromaKey} disabled={keying} onChange={(e) => toggleGreenScreen(e.target.checked)} />
+            Remove green screen{keying ? "…" : slide.chromaKey ? " ✓" : ""}
           </label>
-
-          {/* Layer: base (background) vs overlay (on top of the background) */}
-          <label className="flex items-center gap-2 text-[11px] text-slate-300">
-            <input
-              type="checkbox"
-              checked={slide.layer === "overlay"}
-              onChange={(e) => update(slide.id, { layer: e.target.checked ? "overlay" : "base" })}
-            />
-            <span>
-              Place on top (overlay)
-             
-            </span>
+          <label className="flex items-center gap-1.5">
+            <input type="checkbox" checked={isOverlay} onChange={(e) => update(slide.id, { layer: e.target.checked ? "overlay" : "base" })} />
+            Place on top
           </label>
         </div>
       </div>

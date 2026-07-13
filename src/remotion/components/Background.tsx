@@ -120,12 +120,15 @@ const SlideItem: React.FC<{ slide: BackgroundSlide; local: number; dur: number; 
   }
 
   const isVideoChroma = slide.kind === "video" && slide.chromaKey;
+  const offX = slide.offsetX || 0;
+  const offY = slide.offsetY || 0;
+  const size = slide.size ?? 1;
   return (
     <AbsoluteFill
       style={{
-        // Filter + scale on ONE element (no nested layer) and GPU-composited via
-        // translateZ(0) — avoids the subpixel "shake"/shimmer during zoom.
-        transform: `scale(${scale}) translateZ(0)`,
+        // Position offset + size + zoom scale on ONE element (GPU-composited via
+        // translateZ(0)) — avoids the subpixel "shake"/shimmer during zoom.
+        transform: `translate(${offX}%, ${offY}%) scale(${scale * size}) translateZ(0)`,
         transformOrigin: `${slide.focalX}% ${slide.focalY}%`,
         filter: isVideoChroma ? "url(#nvg-greenscreen)" : undefined,
         willChange: "transform",

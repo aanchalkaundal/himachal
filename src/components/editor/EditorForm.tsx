@@ -130,52 +130,8 @@ export function EditorForm() {
       <div className="space-y-2">
         <MediaUpload label="Logo (all scenes)" accept={ACCEPT_IMAGE} kind="logo" value={p.media.logo} onChange={(v) => updateMedia({ logo: v })} />
         <BackgroundSlidesPanel />
-        <MediaUpload
-          label={`Background Image · Scene ${sceneNumber}`}
-          accept={ACCEPT_IMAGE}
-          kind="image"
-          value={activeScene?.media?.backgroundImage}
-          onChange={(v) => updateSceneMedia({ backgroundImage: v })}
-        />
-        <MediaUpload
-          label={`Background Video · Scene ${sceneNumber}`}
-          accept={ACCEPT_VIDEO}
-          kind="video"
-          value={activeScene?.media?.backgroundVideo}
-          onChange={(v) => updateSceneMedia({ backgroundVideo: v })}
-          preview={false}
-        />
-        <MediaUpload
-          label="Thumbnail"
-          accept={ACCEPT_IMAGE}
-          kind="image"
-          value={p.media.thumbnail}
-          onChange={(v) => updateMedia({ thumbnail: v })}
-        />
-        <MediaUpload
-          label="Background Music"
-          accept={ACCEPT_AUDIO}
-          kind="audio"
-          value={p.media.backgroundMusic}
-          onChange={(v) => updateMedia({ backgroundMusic: v })}
-          preview={false}
-        />
-        <MediaUpload
-          label="Intro Music"
-          accept={ACCEPT_AUDIO}
-          kind="audio"
-          value={p.media.introMusic}
-          onChange={(v) => updateMedia({ introMusic: v })}
-          preview={false}
-        />
-        <MediaUpload
-          label="Outro Music"
-          accept={ACCEPT_AUDIO}
-          kind="audio"
-          value={p.media.outroMusic}
-          onChange={(v) => updateMedia({ outroMusic: v })}
-          preview={false}
-        />
+        {/* Background image/video are handled by the Background Slideshow; music by
+            the Audio Timeline. The standalone slots are hidden to keep it simple. */}
       </div>
 
       {/* ---------- Branding ---------- */}

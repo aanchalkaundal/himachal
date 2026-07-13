@@ -26,7 +26,7 @@ export function createBlankContent(_now: string = new Date().toISOString()): New
 export function createStoryScene(
   name: string,
   content: NewsContent,
-  templateId: TemplateId = "modern-news",
+  templateId: TemplateId = "none",
   durationSeconds = 6,
   media: StoryScene["media"] = {},
 ): StoryScene {
@@ -49,7 +49,7 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
     date: "",
     time: "",
   };
-  const scene1 = createStoryScene("Scene 1", content, "modern-news", 6);
+  const scene1 = createStoryScene("Scene 1", content, "none", 6);
   return {
     version: PROJECT_VERSION,
     id: createId(),
@@ -108,7 +108,7 @@ export function createDefaultProject(now: string = new Date().toISOString()): Ne
       transitionSeconds: 0.6,
     },
     settings: {
-      templateId: "modern-news",
+      templateId: "none",
       resolution: "2160p",
       aspectRatio: "16:9",
       fps: 60,

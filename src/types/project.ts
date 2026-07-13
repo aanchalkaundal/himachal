@@ -87,6 +87,11 @@ export interface BackgroundSlide {
   /** Zoom focal point as viewport percentages (0..100). The image scales toward here. */
   focalX: number;
   focalY: number;
+  /** Position offset as % of the frame (mainly for overlays): +X = right, +Y = down. */
+  offsetX?: number;
+  offsetY?: number;
+  /** Size multiplier (mainly for overlays); 1 = full frame. */
+  size?: number;
   /**
    * Zoom amount per second, as a percentage. e.g. 10 → +10% scale each second
    * (so a 5s slide ends at 1.5×). 0 = no zoom (static). Negative = zoom out.
