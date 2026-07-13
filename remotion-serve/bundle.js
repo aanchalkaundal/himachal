@@ -336,7 +336,7 @@ const Character = ({ state }) => /* @__PURE__ */ react__WEBPACK_IMPORTED_MODULE_
 
 /***/ },
 
-/***/ 2328
+/***/ 5493
 (__unused_webpack_module, __unused_webpack___webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -2088,6 +2088,23 @@ var wipe = (props) => {
 
 ;// ./src/types/project.ts
 
+function buildBackgroundGroups(slides) {
+  const groups = [];
+  let cur = null;
+  for (const s of slides) {
+    const dur = Math.max(0.1, Number(s.durationSeconds) || 1);
+    if (s.layer !== "overlay") {
+      cur = { base: s, overlays: [], durationSeconds: dur };
+      groups.push(cur);
+    } else if (!cur) {
+      cur = { base: null, overlays: [s], durationSeconds: dur };
+      groups.push(cur);
+    } else {
+      cur.overlays.push(s);
+    }
+  }
+  return groups;
+}
 const PROJECT_VERSION = 9;
 const BASE_EDGES = {
   "720p": { long: 1280, short: 720 },
@@ -2206,6 +2223,8 @@ function buildTimeline(project) {
 ;// ./src/remotion/theme.ts
 
 const TEMPLATE_PALETTE = {
+  // No template: no scrim either, so the raw background media shows undimmed.
+  none: { from: "#0b0f17", to: "#020617", scrim: 0 },
   "breaking-news": { from: "#3a0000", to: "#111827", scrim: 0.45 },
   "modern-news": { from: "#0b1f3a", to: "#020617", scrim: 0.4 },
   "business-news": { from: "#0b1220", to: "#0b1220", scrim: 0.3 },
@@ -2330,6 +2349,10 @@ const IntroScene = ({ project, scene, theme }) => {
     /* @__PURE__ */ react.createElement("div", { style: { ...catFade, color: "#cbd5e1", fontSize: 24, fontWeight: 600, letterSpacing: 4 } }, category)
   );
 };
+
+;// ./src/remotion/templates/NoneNews.tsx
+
+const NoneNews = () => null;
 
 ;// ./src/remotion/components/LowerThird.tsx
 
@@ -2789,7 +2812,15 @@ const SportsSpotlight = ({ project }) => {
 
 
 
+
 const TEMPLATES = {
+  none: {
+    id: "none",
+    name: "None (no template)",
+    description: "No foreground graphics \u2014 show only the background media, ticker, logo and anchors.",
+    defaultDurationInSeconds: 8,
+    component: NoneNews
+  },
   "breaking-news": {
     id: "breaking-news",
     name: "Breaking News",
@@ -2951,6 +2982,7 @@ const SCENE_REGISTRY = {
 
 
 
+
 const TextCard = ({ slide, accent }) => {
   const text = slide.text ?? "";
   const color = slide.textColor || "#ffffff";
@@ -2980,64 +3012,91 @@ const TextCard = ({ slide, accent }) => {
   }
 };
 const SLIDE_FADE_FRAMES = 14;
-const SlideShow = ({ slides, accent }) => {
-  const frame = (0,esm.useCurrentFrame)();
-  const { fps } = (0,esm.useVideoConfig)();
-  const durations = slides.map((s) => Math.max(1, Math.round((s.durationSeconds || 1) * fps)));
-  const starts = durations.map((_, i) => durations.slice(0, i).reduce((a, b) => a + b, 0));
-  return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, null, slides.map((slide, i) => {
-    const start = starts[i];
-    const dur = durations[i];
-    const isLast = i === slides.length - 1;
-    const local = frame - start;
-    if (local < 0) return null;
-    if (!isLast && local > dur) return null;
-    const zs = slide.zoomSpeed || 0;
-    const rate = Math.abs(zs) / 100;
-    const localSec = local / fps;
-    let scale;
-    if (zs >= 0) {
-      scale = 1 + rate * localSec;
-    } else {
-      const totalOut = rate * (dur / fps);
-      scale = Math.max(1, 1 + totalOut - rate * localSec);
-    }
-    const fadeIn = i === 0 ? 1 : (0,esm.interpolate)(local, [0, SLIDE_FADE_FRAMES], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-    const fadeOut = isLast ? 1 : (0,esm.interpolate)(local, [dur - SLIDE_FADE_FRAMES, dur], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-    const opacity = Math.min(fadeIn, fadeOut);
-    if (opacity <= 0) return null;
-    return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { key: slide.id, style: { opacity } }, /* @__PURE__ */ react.createElement(
-      esm.AbsoluteFill,
-      {
-        style: {
-          transform: `scale(${scale})`,
-          transformOrigin: `${slide.focalX}% ${slide.focalY}%`
-        }
-      },
-      slide.kind === "text" ? /* @__PURE__ */ react.createElement(TextCard, { slide, accent }) : slide.kind === "video" ? /* @__PURE__ */ react.createElement(
+const SlideItem = ({
+  slide,
+  local,
+  dur,
+  fps,
+  accent
+}) => {
+  const zs = slide.zoomSpeed || 0;
+  const rate = Math.abs(zs) / 100;
+  const localSec = local / fps;
+  let scale;
+  if (zs >= 0) {
+    scale = 1 + rate * localSec;
+  } else {
+    const totalOut = rate * (dur / fps);
+    scale = Math.max(1, 1 + totalOut - rate * localSec);
+  }
+  const isVideoChroma = slide.kind === "video" && slide.chromaKey;
+  const offX = slide.offsetX || 0;
+  const offY = slide.offsetY || 0;
+  const size = slide.size ?? 1;
+  return /* @__PURE__ */ react.createElement(
+    esm.AbsoluteFill,
+    {
+      style: {
+        // Position offset + size + zoom scale on ONE element (GPU-composited via
+        // translateZ(0)) — avoids the subpixel "shake"/shimmer during zoom.
+        transform: `translate(${offX}%, ${offY}%) scale(${scale * size}) translateZ(0)`,
+        transformOrigin: `${slide.focalX}% ${slide.focalY}%`,
+        filter: isVideoChroma ? "url(#nvg-greenscreen)" : void 0,
+        willChange: "transform",
+        backfaceVisibility: "hidden"
+      }
+    },
+    slide.kind === "text" ? /* @__PURE__ */ react.createElement(TextCard, { slide, accent }) : slide.kind === "video" ? (() => {
+      const rateFor = slide.playbackRate && slide.playbackRate > 0 ? slide.playbackRate : 1;
+      const video = /* @__PURE__ */ react.createElement(
         esm.OffthreadVideo,
         {
           src: slide.src,
           muted: true,
-          playbackRate: slide.playbackRate && slide.playbackRate > 0 ? slide.playbackRate : 1,
-          style: {
-            objectFit: "cover",
-            width: "100%",
-            height: "100%",
-            // Live green-screen removal for video via the SVG chroma-key filter.
-            filter: slide.chromaKey ? "url(#nvg-greenscreen)" : void 0
-          }
+          playbackRate: rateFor,
+          style: { objectFit: "cover", width: "100%", height: "100%" }
         }
-      ) : /* @__PURE__ */ react.createElement(esm.Img, { src: slide.src, style: { objectFit: "cover", width: "100%", height: "100%" } })
-    ));
+      );
+      const loopLen = Math.max(1, Math.round((slide.videoDurationSeconds || 0) / rateFor * fps));
+      return slide.loop && slide.videoDurationSeconds ? /* @__PURE__ */ react.createElement(esm.Loop, { durationInFrames: loopLen }, video) : video;
+    })() : /* @__PURE__ */ react.createElement(esm.Img, { src: slide.src, style: { objectFit: "cover", width: "100%", height: "100%" } })
+  );
+};
+const SlideShow = ({ slides, accent, scrim }) => {
+  const frame = (0,esm.useCurrentFrame)();
+  const { fps } = (0,esm.useVideoConfig)();
+  const groups = buildBackgroundGroups(slides);
+  const durations = groups.map((g) => Math.max(1, Math.round(g.durationSeconds * fps)));
+  const starts = durations.map((_, i) => durations.slice(0, i).reduce((a, b) => a + b, 0));
+  return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, null, groups.map((g, i) => {
+    const start = starts[i];
+    const groupDur = durations[i];
+    const isLast = i === groups.length - 1;
+    const local = frame - start;
+    if (local < 0) return null;
+    if (!isLast && local > groupDur) return null;
+    const gIn = i === 0 ? 1 : (0,esm.interpolate)(local, [0, SLIDE_FADE_FRAMES], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    const gOut = isLast ? 1 : (0,esm.interpolate)(local, [groupDur - SLIDE_FADE_FRAMES, groupDur], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+    const gOpacity = Math.min(gIn, gOut);
+    if (gOpacity <= 0) return null;
+    return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { key: i, style: { opacity: gOpacity } }, g.base ? /* @__PURE__ */ react.createElement(SlideItem, { slide: g.base, local, dur: groupDur, fps, accent }) : null, scrim > 0 ? /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `rgba(0,0,0,${scrim})` } }) : null, g.overlays.map((ov) => {
+      const ovDur = Math.min(Math.max(1, Math.round((ov.durationSeconds || 1) * fps)), groupDur);
+      if (local > ovDur) return null;
+      const oIn = (0,esm.interpolate)(local, [0, SLIDE_FADE_FRAMES], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+      const oOut = (0,esm.interpolate)(local, [ovDur - SLIDE_FADE_FRAMES, ovDur], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+      const oOpacity = Math.min(oIn, oOut);
+      if (oOpacity <= 0) return null;
+      return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { key: ov.id, style: { opacity: oOpacity } }, /* @__PURE__ */ react.createElement(SlideItem, { slide: ov, local, dur: ovDur, fps, accent }));
+    }));
   }));
 };
 const Background = ({ media, from, to, scrim = 0.35, accent = "#e11d2a" }) => {
   const ken = useKenBurns();
   const slides = media.backgroundSlides ?? [];
-  const baseSlides = slides.filter((s) => (s.layer ?? "base") === "base");
-  const overlaySlides = slides.filter((s) => s.layer === "overlay");
-  return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, null, /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` } }), media.backgroundVideo ? /* @__PURE__ */ react.createElement(esm.OffthreadVideo, { src: media.backgroundVideo, muted: true, style: { objectFit: "cover", width: "100%", height: "100%" } }) : baseSlides.length > 0 ? /* @__PURE__ */ react.createElement(SlideShow, { slides: baseSlides, accent }) : media.backgroundImage ? /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: ken }, /* @__PURE__ */ react.createElement(esm.Img, { src: media.backgroundImage, style: { objectFit: "cover", width: "100%", height: "100%" } })) : null, /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `rgba(0,0,0,${scrim})` } }), overlaySlides.length > 0 ? /* @__PURE__ */ react.createElement(SlideShow, { slides: overlaySlides, accent }) : null);
+  return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, null, /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` } }), media.backgroundVideo ? /* @__PURE__ */ react.createElement(react.Fragment, null, /* @__PURE__ */ react.createElement(esm.OffthreadVideo, { src: media.backgroundVideo, muted: true, style: { objectFit: "cover", width: "100%", height: "100%" } }), /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `rgba(0,0,0,${scrim})` } })) : slides.length > 0 ? (
+    // Slideshow handles the scrim per group (between base and its overlays).
+    /* @__PURE__ */ react.createElement(SlideShow, { slides, accent, scrim })
+  ) : media.backgroundImage ? /* @__PURE__ */ react.createElement(react.Fragment, null, /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: ken }, /* @__PURE__ */ react.createElement(esm.Img, { src: media.backgroundImage, style: { objectFit: "cover", width: "100%", height: "100%" } })), /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `rgba(0,0,0,${scrim})` } })) : /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { background: `rgba(0,0,0,${scrim})` } }));
 };
 
 ;// ./src/remotion/components/NewsTicker.tsx
@@ -3436,17 +3495,12 @@ const AnchorLayer = ({ layer, anchors, scene }) => {
 
 
 
-function descriptionToItems(description) {
-  const d = description == null ? void 0 : description.trim();
-  if (!d) return [];
-  return d.split(/\n+|(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean);
-}
 const SceneStage = ({
   project,
   scene,
   theme
 }) => {
-  var _a, _b, _c, _d;
+  var _a, _b;
   const Scene = SCENE_REGISTRY[scene.kind];
   const anchors = project.anchors;
   const sceneMedia = (_b = (_a = scene.data) == null ? void 0 : _a.storyScene) == null ? void 0 : _b.media;
@@ -3456,10 +3510,7 @@ const SceneStage = ({
     backgroundVideo: sceneMedia.backgroundVideo,
     backgroundSlides: sceneMedia.backgroundSlides
   } : project.media;
-  const descItems = descriptionToItems((_d = (_c = scene.data) == null ? void 0 : _c.storyScene) == null ? void 0 : _d.content.description);
-  const items = descItems.length > 0 ? descItems : project.ticker.items;
-  const sceneTicker = { ...project.ticker, items };
-  return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, null, /* @__PURE__ */ react.createElement(Background, { media, from: theme.from, to: theme.to, scrim: theme.scrim, accent: theme.accent }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "background", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "desk", anchors, scene }), /* @__PURE__ */ react.createElement(Scene, { project, scene, theme }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "middle", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "front", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "overlay", anchors, scene }), /* @__PURE__ */ react.createElement(NewsTicker, { ticker: sceneTicker, accent: theme.accent }));
+  return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, null, /* @__PURE__ */ react.createElement(Background, { media, from: theme.from, to: theme.to, scrim: theme.scrim, accent: theme.accent }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "background", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "desk", anchors, scene }), /* @__PURE__ */ react.createElement(Scene, { project, scene, theme }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "middle", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "front", anchors, scene }), /* @__PURE__ */ react.createElement(AnchorLayer, { layer: "overlay", anchors, scene }), /* @__PURE__ */ react.createElement(NewsTicker, { ticker: project.ticker, accent: theme.accent }));
 };
 
 ;// ./src/remotion/components/LogoBadge.tsx
@@ -3711,11 +3762,20 @@ const NewsComposition = ({ project }) => {
   return /* @__PURE__ */ react.createElement(esm.AbsoluteFill, { style: { backgroundColor: "#000" } }, /* @__PURE__ */ react.createElement("svg", { width: 0, height: 0, style: { position: "absolute" }, "aria-hidden": true }, /* @__PURE__ */ react.createElement("defs", null, /* @__PURE__ */ react.createElement("filter", { id: "nvg-greenscreen", colorInterpolationFilters: "sRGB" }, /* @__PURE__ */ react.createElement(
     "feColorMatrix",
     {
+      in: "SourceGraphic",
       type: "matrix",
-      values: "1 0 0 0 0\n                      0 1 0 0 0\n                      0 0 1 0 0\n                      1 -1 1 0 0",
-      result: "keyed"
+      values: "1 0 0 0 0\n                      0.5 0 0.5 0 0\n                      0 0 1 0 0\n                      0 0 0 1 0",
+      result: "gAvg"
     }
-  ), /* @__PURE__ */ react.createElement("feComponentTransfer", { in: "keyed" }, /* @__PURE__ */ react.createElement("feFuncA", { type: "discrete", tableValues: "0 0 0 0 1 1 1 1" }))))), /* @__PURE__ */ react.createElement(TransitionSeries, null, timeline.scenes.map((scene, i) => {
+  ), /* @__PURE__ */ react.createElement("feBlend", { in: "SourceGraphic", in2: "gAvg", mode: "darken", result: "despilled" }), /* @__PURE__ */ react.createElement(
+    "feColorMatrix",
+    {
+      in: "SourceGraphic",
+      type: "matrix",
+      values: "0 0 0 0 0\n                      0 0 0 0 0\n                      0 0 0 0 0\n                      -0.5 1 -0.5 0 0",
+      result: "greenness"
+    }
+  ), /* @__PURE__ */ react.createElement("feComponentTransfer", { in: "greenness", result: "mask" }, /* @__PURE__ */ react.createElement("feFuncA", { type: "discrete", tableValues: "1 1 0.7 0.3 0 0 0 0 0 0" })), /* @__PURE__ */ react.createElement("feComposite", { in: "despilled", in2: "mask", operator: "in" })))), /* @__PURE__ */ react.createElement(TransitionSeries, null, timeline.scenes.map((scene, i) => {
     const transition = i > 0 ? timeline.transitions[i - 1] : null;
     const presentation = transition ? presentationFor(transition.type) : null;
     return /* @__PURE__ */ react.createElement(react.Fragment, { key: scene.id }, presentation && transition && transition.durationInFrames > 0 ? /* @__PURE__ */ react.createElement(
@@ -3760,7 +3820,7 @@ function createBlankContent(_now = (/* @__PURE__ */ new Date()).toISOString()) {
     time: ""
   };
 }
-function createStoryScene(name, content, templateId = "modern-news", durationSeconds = 6, media = {}) {
+function createStoryScene(name, content, templateId = "none", durationSeconds = 6, media = {}) {
   return { id: createId("scene"), name, templateId, durationSeconds, content, media };
 }
 function createDefaultProject(now = (/* @__PURE__ */ new Date()).toISOString()) {
@@ -3774,7 +3834,7 @@ function createDefaultProject(now = (/* @__PURE__ */ new Date()).toISOString()) 
     date: "",
     time: ""
   };
-  const scene1 = createStoryScene("Scene 1", content, "modern-news", 6);
+  const scene1 = createStoryScene("Scene 1", content, "none", 6);
   return {
     version: PROJECT_VERSION,
     id: createId(),
@@ -3811,10 +3871,10 @@ function createDefaultProject(now = (/* @__PURE__ */ new Date()).toISOString()) 
     audioClips: [],
     social: {
       enabled: true,
-      youtube: "",
-      instagram: "",
-      facebook: "",
-      x: "",
+      youtube: "@NewsHimachal",
+      instagram: "@NewsHimachal",
+      facebook: "@NewsHimachal",
+      x: "@NewsHimachal",
       showAtSeconds: 3,
       durationSeconds: 4,
       repeatEverySeconds: 30,
@@ -3833,7 +3893,7 @@ function createDefaultProject(now = (/* @__PURE__ */ new Date()).toISOString()) 
       transitionSeconds: 0.6
     },
     settings: {
-      templateId: "modern-news",
+      templateId: "none",
       resolution: "2160p",
       aspectRatio: "16:9",
       fps: 60,
@@ -35462,7 +35522,7 @@ var NoReactInternals = {
 /******/ 	// Load entry module and return exports
 /******/ 	// This entry module is referenced by other modules so it can't be inlined
 /******/ 	__webpack_require__(6507);
-/******/ 	__webpack_require__(2328);
+/******/ 	__webpack_require__(5493);
 /******/ 	__webpack_require__(3610);
 /******/ 	var __webpack_exports__ = __webpack_require__(3482);
 /******/ 	
