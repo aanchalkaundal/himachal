@@ -1,6 +1,7 @@
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
+import http from "node:http";
 import crypto from "node:crypto";
 import { bundle } from "@remotion/bundler";
 import { selectComposition, renderMedia, ensureBrowser, makeCancelSignal } from "@remotion/renderer";
@@ -19,13 +20,81 @@ function ensureOutputDir() {
   if (!fs.existsSync(ASSET_DIR)) fs.mkdirSync(ASSET_DIR, { recursive: true });
 }
 
+const MIME_BY_EXT: Record<string, string> = {
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".mov": "video/quicktime",
+  ".mkv": "video/x-matroska",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".ogg": "audio/ogg",
+  ".m4a": "audio/mp4",
+  ".aac": "audio/aac",
+  ".flac": "audio/flac",
+};
+const mimeForFile = (file: string) => MIME_BY_EXT[path.extname(file).toLowerCase()] || "application/octet-stream";
+
 /**
- * Write a `data:` URL to a real file and return a `file://` URL. OffthreadVideo
- * (and Img/Audio) fetch big base64 data URLs through Remotion's proxy, which
- * fails/times out for large videos ("Failed to fetch .../proxy"). Serving real
- * files renders reliably and keeps memory down.
+ * A tiny local HTTP server (with Range support, needed for video seeking) that
+ * serves the materialized asset files. Remotion's renderer only accepts http(s)
+ * URLs, so materialized data-URLs are served from here. Started once per process.
  */
-function dataUrlToFile(src: string, cache: Map<string, string>): string {
+const gAsset = globalThis as unknown as { __nvgAssetPort?: number; __nvgAssetPromise?: Promise<number> };
+function ensureAssetServer(): Promise<number> {
+  if (gAsset.__nvgAssetPort) return Promise.resolve(gAsset.__nvgAssetPort);
+  if (gAsset.__nvgAssetPromise) return gAsset.__nvgAssetPromise;
+  gAsset.__nvgAssetPromise = new Promise<number>((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      try {
+        const name = path.basename(decodeURIComponent((req.url || "/").split("?")[0]));
+        const file = path.join(ASSET_DIR, name);
+        if (!name || !fs.existsSync(file)) {
+          res.statusCode = 404;
+          return res.end("not found");
+        }
+        const stat = fs.statSync(file);
+        const type = mimeForFile(file);
+        const range = req.headers.range;
+        if (range) {
+          const m = /bytes=(\d*)-(\d*)/.exec(range);
+          let start = m && m[1] ? parseInt(m[1], 10) : 0;
+          let end = m && m[2] ? parseInt(m[2], 10) : stat.size - 1;
+          if (Number.isNaN(start)) start = 0;
+          if (Number.isNaN(end) || end >= stat.size) end = stat.size - 1;
+          res.writeHead(206, {
+            "Content-Range": `bytes ${start}-${end}/${stat.size}`,
+            "Accept-Ranges": "bytes",
+            "Content-Length": end - start + 1,
+            "Content-Type": type,
+          });
+          fs.createReadStream(file, { start, end }).pipe(res);
+        } else {
+          res.writeHead(200, { "Content-Length": stat.size, "Content-Type": type, "Accept-Ranges": "bytes" });
+          fs.createReadStream(file).pipe(res);
+        }
+      } catch (e) {
+        res.statusCode = 500;
+        res.end(String(e));
+      }
+    });
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      gAsset.__nvgAssetPort = (server.address() as { port: number }).port;
+      resolve(gAsset.__nvgAssetPort);
+    });
+  });
+  return gAsset.__nvgAssetPromise;
+}
+
+/** Write a `data:` URL to a real file, return an http URL served by the asset
+ * server. (Remotion only fetches http(s); big data URLs fail through its proxy.) */
+function dataUrlToUrl(src: string, port: number, cache: Map<string, string>): string {
   const cached = cache.get(src);
   if (cached) return cached;
   const m = /^data:([^;,]*)(;base64)?,([\s\S]*)$/.exec(src);
@@ -34,18 +103,19 @@ function dataUrlToFile(src: string, cache: Map<string, string>): string {
   const isB64 = Boolean(m[2]);
   const buf = isB64 ? Buffer.from(m[3], "base64") : Buffer.from(decodeURIComponent(m[3]));
   const ext = (mime.split("/")[1] || "bin").split("+")[0].replace(/[^a-z0-9]/gi, "") || "bin";
-  const file = path.join(ASSET_DIR, `${crypto.createHash("md5").update(src).digest("hex")}.${ext}`);
+  const name = `${crypto.createHash("md5").update(src).digest("hex")}.${ext}`;
+  const file = path.join(ASSET_DIR, name);
   if (!fs.existsSync(file)) fs.writeFileSync(file, buf);
-  const url = `file://${file.replace(/\\/g, "/")}`;
+  const url = `http://127.0.0.1:${port}/${name}`;
   cache.set(src, url);
   return url;
 }
 
-/** Deep-clone the project, replacing every embedded `data:` URL with a file URL. */
-function materializeMedia(project: NewsProject): NewsProject {
+/** Deep-clone the project, replacing every embedded `data:` URL with an http URL. */
+function materializeMedia(project: NewsProject, port: number): NewsProject {
   const cache = new Map<string, string>();
   const walk = (v: unknown): unknown => {
-    if (typeof v === "string") return v.startsWith("data:") ? dataUrlToFile(v, cache) : v;
+    if (typeof v === "string") return v.startsWith("data:") ? dataUrlToUrl(v, port, cache) : v;
     if (Array.isArray(v)) return v.map(walk);
     if (v && typeof v === "object") {
       const out: Record<string, unknown> = {};
@@ -109,9 +179,11 @@ export async function renderProject(job: RenderJob, project: NewsProject): Promi
   await ensureBrowser();
   const serveUrl = await getBundle();
 
-  // Materialize embedded data-URL media to real files so OffthreadVideo/Img/Audio
-  // load them reliably (large data URLs fail through Remotion's proxy).
-  const renderProps = materializeMedia(project);
+  // Materialize embedded data-URL media to real files served over http so
+  // OffthreadVideo/Img/Audio load them reliably (large data URLs fail through
+  // Remotion's proxy; Remotion only accepts http(s) URLs, not file://).
+  const assetPort = await ensureAssetServer();
+  const renderProps = materializeMedia(project, assetPort);
 
   const composition = await selectComposition({
     serveUrl,
@@ -122,6 +194,11 @@ export async function renderProject(job: RenderJob, project: NewsProject): Promi
 
   const format = project.settings.format;
   const outputLocation = path.join(OUTPUT_DIR, `${job.id}.${EXT[format]}`);
+
+  // Use most of the CPU (Remotion defaults to ~half the cores). On a many-core
+  // machine (e.g. i9) this renders several frames in parallel → much faster.
+  const cores = Math.max(1, os.cpus()?.length || 4);
+  const concurrency = Math.max(2, Math.floor(cores * 0.85));
 
   job.status = "rendering";
   await renderMedia({
@@ -134,6 +211,10 @@ export async function renderProject(job: RenderJob, project: NewsProject): Promi
     // Composition is in the 1080p design space; scale up to the chosen resolution
     // (e.g. 2× → 4K). Layout stays identical, output is native high-res + crisp.
     scale: getRenderScale(project.settings.resolution),
+    // Parallelism + a faster x264 preset + a big video cache = quicker exports.
+    concurrency,
+    ...(format === "mp4" ? { x264Preset: "faster" as const } : {}),
+    offthreadVideoCacheSizeInBytes: 512 * 1024 * 1024,
     onProgress: ({ progress, renderedFrames, stitchStage }) => {
       job.progress = progress;
       job.renderedFrames = renderedFrames;
