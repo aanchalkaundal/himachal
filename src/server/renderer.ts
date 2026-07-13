@@ -195,10 +195,24 @@ export async function renderProject(job: RenderJob, project: NewsProject): Promi
   const format = project.settings.format;
   const outputLocation = path.join(OUTPUT_DIR, `${job.id}.${EXT[format]}`);
 
-  // Use most of the CPU (Remotion defaults to ~half the cores). On a many-core
-  // machine (e.g. i9) this renders several frames in parallel → much faster.
+  // Parallel frame rendering, but capped by RAM: each headless tab needs a lot of
+  // memory (more at 4K), so over-committing makes the machine swap and render
+  // SLOWER, not faster. Take the smaller of a CPU-based and a RAM-based cap.
   const cores = Math.max(1, os.cpus()?.length || 4);
-  const concurrency = Math.max(2, Math.floor(cores * 0.85));
+  const totalGB = os.totalmem() / 1e9;
+  const heavy = getRenderScale(project.settings.resolution) >= 2; // 2K/4K need more RAM/tab
+  const ramCap = Math.max(2, Math.floor(totalGB / (heavy ? 3 : 2))); // ~1 tab per 2–3 GB
+  const envConc = Number(process.env.NVG_CONCURRENCY);
+  const concurrency =
+    Number.isFinite(envConc) && envConc > 0
+      ? Math.floor(envConc)
+      : Math.max(2, Math.min(Math.floor(cores * 0.9), ramCap));
+
+  // GPU-accelerate the headless browser: by default Chromium renders on the CPU
+  // (SwiftShader), which is very slow for CSS/SVG filters (green-screen key),
+  // transforms and 4K. "angle" uses the real GPU (D3D on Windows) → big speedup.
+  // Override with NVG_GL=swiftshader if a machine has GPU driver issues.
+  const gl = (process.env.NVG_GL as "angle" | "swiftshader" | "swangle" | "egl" | "vulkan" | undefined) || "angle";
 
   job.status = "rendering";
   await renderMedia({
@@ -211,9 +225,10 @@ export async function renderProject(job: RenderJob, project: NewsProject): Promi
     // Composition is in the 1080p design space; scale up to the chosen resolution
     // (e.g. 2× → 4K). Layout stays identical, output is native high-res + crisp.
     scale: getRenderScale(project.settings.resolution),
-    // Parallelism + a faster x264 preset + a big video cache = quicker exports.
+    // Parallelism + GPU + a fast x264 preset + a big video cache = quicker exports.
     concurrency,
-    ...(format === "mp4" ? { x264Preset: "faster" as const } : {}),
+    chromiumOptions: { gl },
+    ...(format === "mp4" ? { x264Preset: "veryfast" as const } : {}),
     offthreadVideoCacheSizeInBytes: 512 * 1024 * 1024,
     onProgress: ({ progress, renderedFrames, stitchStage }) => {
       job.progress = progress;
