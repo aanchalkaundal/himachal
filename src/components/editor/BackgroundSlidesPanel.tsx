@@ -179,6 +179,17 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
   const remove = useProjectStore((s) => s.removeBackgroundSlide);
   const reorder = useProjectStore((s) => s.reorderBackgroundSlide);
 
+  // Backfill the video's own length for older slides (added before this field
+  // existed) so looping knows the clip length.
+  React.useEffect(() => {
+    if (slide.kind === "video" && !slide.videoDurationSeconds && slide.src) {
+      getVideoDuration(slide.src).then((d) => {
+        if (d > 0) update(slide.id, { videoDurationSeconds: d });
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slide.id, slide.kind]);
+
   function pickFocal(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
