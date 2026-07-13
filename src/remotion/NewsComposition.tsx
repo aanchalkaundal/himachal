@@ -93,31 +93,40 @@ export const NewsComposition: React.FC<{ project: NewsProject }> = ({ project })
       <svg width={0} height={0} style={{ position: "absolute" }} aria-hidden>
         <defs>
           <filter id="nvg-greenscreen" colorInterpolationFilters="sRGB">
-            {/* 1. Put a "greenness" score (G − (R+B)/2) into alpha; keep RGB. */}
+            {/* ---- DESPILL (like After Effects / DaVinci): clamp the green channel
+                    to G' = min(G, (R+B)/2). Green fringe on hair/edges loses its
+                    tint and turns neutral, while skin (where G < (R+B)/2) is
+                    untouched. Done via a green-averaged copy + darken blend. ---- */}
             <feColorMatrix
+              in="SourceGraphic"
               type="matrix"
               values="1 0 0 0 0
-                      0 1 0 0 0
-                      0 0 1 0 0
-                      -0.5 1 -0.5 0 0"
-              result="green"
-            />
-            {/* 2. Threshold with a SOFT edge: strong green (≳0.4) → transparent,
-                   the ~0.3 fringe band → semi-transparent so edges blend instead of
-                   showing a hard green rim. Skin (greenness ≈ 0) stays opaque. */}
-            <feComponentTransfer in="green" result="mask">
-              <feFuncA type="discrete" tableValues="1 1 1 0.5 0 0 0 0 0 0" />
-            </feComponentTransfer>
-            {/* 3. Spill suppression: pull the green channel toward the R/B average,
-                   killing the green tint on the kept edge pixels. */}
-            <feColorMatrix
-              in="mask"
-              type="matrix"
-              values="1 0 0 0 0
-                      0.2 0.6 0.2 0 0
+                      0.5 0 0.5 0 0
                       0 0 1 0 0
                       0 0 0 1 0"
+              result="gAvg"
             />
+            <feBlend in="SourceGraphic" in2="gAvg" mode="darken" result="despilled" />
+
+            {/* ---- MASK: greenness = G − (R+B)/2 in alpha (RGB ignored, so the
+                    subject's colours can't be corrupted by premultiply). ---- */}
+            <feColorMatrix
+              in="SourceGraphic"
+              type="matrix"
+              values="0 0 0 0 0
+                      0 0 0 0 0
+                      0 0 0 0 0
+                      -0.5 1 -0.5 0 0"
+              result="greenness"
+            />
+            {/* Soft-edged threshold: strong green → 0 (remove), fringe fades, the
+                subject (greenness ≈ 0) → 1 (keep). */}
+            <feComponentTransfer in="greenness" result="mask">
+              <feFuncA type="discrete" tableValues="1 1 0.7 0.3 0 0 0 0 0 0" />
+            </feComponentTransfer>
+
+            {/* Apply the mask's alpha to the DESPILLED footage. */}
+            <feComposite in="despilled" in2="mask" operator="in" />
           </filter>
         </defs>
       </svg>

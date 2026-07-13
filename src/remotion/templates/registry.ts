@@ -1,5 +1,6 @@
 import type { TemplateId } from "@/types/project";
 import type { TemplateDefinition } from "./types";
+import { NoneNews } from "./NoneNews";
 import { BreakingNews } from "./BreakingNews";
 import { ModernNews } from "./ModernNews";
 import { BusinessNews } from "./BusinessNews";
@@ -18,6 +19,13 @@ import { SportsSpotlight } from "./SportsSpotlight";
  * is what makes the "unlimited future templates" requirement cheap to satisfy.
  */
 export const TEMPLATES: Record<TemplateId, TemplateDefinition> = {
+  none: {
+    id: "none",
+    name: "None (no template)",
+    description: "No foreground graphics — show only the background media, ticker, logo and anchors.",
+    defaultDurationInSeconds: 8,
+    component: NoneNews,
+  },
   "breaking-news": {
     id: "breaking-news",
     name: "Breaking News",

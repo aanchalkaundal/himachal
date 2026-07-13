@@ -14,6 +14,17 @@ import type { BackgroundSlide } from "@/types/project";
  * render (which would break useSyncExternalStore's snapshot caching). */
 const NO_SLIDES: BackgroundSlide[] = [];
 
+/** Read a video's duration (seconds) from its data URL. */
+function getVideoDuration(src: string): Promise<number> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.onloadedmetadata = () => resolve(Number.isFinite(v.duration) && v.duration > 0 ? v.duration : 6);
+    v.onerror = () => resolve(6);
+    v.src = src;
+  });
+}
+
 /**
  * Multi-image background slideshow editor. Users add any number of images and,
  * per image, set how long it shows (duration), where the zoom is aimed (click
@@ -58,11 +69,14 @@ export function BackgroundSlidesPanel() {
       const isVideo = kind === "video";
       const dataUrl = await fileToDataUrl(file);
       const src = assetManager.register(isVideo ? "video" : "image", dataUrl, file.name);
+      // Match a video slide's duration to the clip's real length so it doesn't
+      // freeze on the last frame partway through the slide.
+      const durationSeconds = isVideo ? await getVideoDuration(dataUrl) : 4;
       const slide: BackgroundSlide = {
         id: createId("slide"),
         kind: isVideo ? "video" : "image",
         src,
-        durationSeconds: isVideo ? 6 : 4,
+        durationSeconds,
         focalX: 50,
         focalY: 50,
         // Zoom is optional for video → default off (0); images get a gentle push.
@@ -283,6 +297,18 @@ function SlideRow({ slide, index, count }: { slide: BackgroundSlide; index: numb
                 <option value="3">3×</option>
                 <option value="4">4×</option>
               </select>
+            </label>
+          ) : null}
+
+          {/* Loop video (fill a longer duration without freezing) */}
+          {isVideo ? (
+            <label className="flex items-center gap-2 text-[11px] text-slate-300">
+              <input
+                type="checkbox"
+                checked={!!slide.loop}
+                onChange={(e) => update(slide.id, { loop: e.target.checked })}
+              />
+              <span>Loop video (ping-pong: forward → reverse, no jump cut)</span>
             </label>
           ) : null}
 

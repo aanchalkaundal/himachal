@@ -12,6 +12,8 @@ export interface Theme {
 
 /** Per-template background palette. Branding colors still override accents. */
 const TEMPLATE_PALETTE: Record<TemplateId, { from: string; to: string; scrim: number }> = {
+  // No template: no scrim either, so the raw background media shows undimmed.
+  none: { from: "#0b0f17", to: "#020617", scrim: 0 },
   "breaking-news": { from: "#3a0000", to: "#111827", scrim: 0.45 },
   "modern-news": { from: "#0b1f3a", to: "#020617", scrim: 0.4 },
   "business-news": { from: "#0b1220", to: "#0b1220", scrim: 0.3 },

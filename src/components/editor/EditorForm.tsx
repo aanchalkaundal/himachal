@@ -298,8 +298,8 @@ export function EditorForm() {
           </Field>
         </div>
         <Field
-          label="Ticker items (fallback)"
-          hint="The ticker scrolls each scene's Description automatically. These lines are used only when no description is written."
+          label="Ticker items (one per line)"
+          hint="These lines scroll across the ticker on a loop. The Description is NOT shown here."
         >
           <Textarea
             rows={3}
@@ -337,7 +337,16 @@ export function EditorForm() {
       </div>
 
       {/* ---------- Social channels ---------- */}
-      <SectionTitle>Social Channels</SectionTitle>
+      <div className="flex items-center justify-between">
+        <SectionTitle>Social Channels</SectionTitle>
+        <button
+          onClick={() => updateSocial({ youtube: "", instagram: "", facebook: "", x: "" })}
+          className="rounded-md border border-surface-border px-2.5 py-1 text-xs font-semibold text-slate-400 hover:border-accent-soft hover:text-accent-soft"
+          title="Clear all four handles"
+        >
+          ⟲ Clear all
+        </button>
+      </div>
       <div className="space-y-3">
         <label className="flex items-center gap-2 text-sm text-slate-300">
           <input

@@ -1,5 +1,15 @@
 import React from "react";
-import { AbsoluteFill, Img, OffthreadVideo, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import {
+  AbsoluteFill,
+  Img,
+  OffthreadVideo,
+  interpolate,
+  useCurrentFrame,
+  useVideoConfig,
+  delayRender,
+  continueRender,
+  getRemotionEnvironment,
+} from "remotion";
 import type { BackgroundSlide, MediaAssets } from "@/types/project";
 import { buildBackgroundGroups } from "@/types/project";
 import { useKenBurns } from "@/remotion/animations/presets";
@@ -96,6 +106,95 @@ const TextCard: React.FC<{ slide: BackgroundSlide; accent: string }> = ({ slide,
 /** Frames used for the cross-fade between slideshow items. */
 const SLIDE_FADE_FRAMES = 14;
 
+/**
+ * Ping-pong (boomerang) looping video: plays forward to the end, then backward to
+ * the start, repeating — no jump cut. The video time follows a triangle wave and
+ * is seeked per frame; `delayRender` holds each render frame until the seek lands,
+ * so preview and export match.
+ */
+const PingPongVideo: React.FC<{ src: string; playbackRate: number; style: React.CSSProperties }> = ({
+  src,
+  playbackRate,
+  style,
+}) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const ref = React.useRef<HTMLVideoElement>(null);
+  const [duration, setDuration] = React.useState(0);
+  const isRendering = getRemotionEnvironment().isRendering;
+
+  // Load metadata. Only block the RENDER (never the live preview) while it loads.
+  React.useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    const handle = isRendering ? delayRender("pingpong-meta") : null;
+    let settled = false;
+    const finish = () => {
+      if (!settled) {
+        settled = true;
+        if (handle !== null) continueRender(handle);
+      }
+    };
+    const onMeta = () => {
+      setDuration(Number.isFinite(v.duration) ? v.duration : 0);
+      finish();
+    };
+    if (v.readyState >= 1 && v.duration) onMeta();
+    else {
+      v.addEventListener("loadedmetadata", onMeta, { once: true });
+      v.addEventListener("error", finish, { once: true });
+    }
+    return () => {
+      v.removeEventListener("loadedmetadata", onMeta);
+      finish();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRendering]);
+
+  // Seek to the ping-pong time each frame. In the PREVIEW we just seek (no block,
+  // so playback never freezes); in RENDER we hold the frame until the seek lands.
+  React.useEffect(() => {
+    const v = ref.current;
+    if (!v || !duration) return;
+    const t = (frame / fps) * (playbackRate || 1);
+    const period = duration * 2;
+    const m = ((t % period) + period) % period;
+    const target = m <= duration ? m : period - m; // forward → reverse
+    if (Math.abs(v.currentTime - target) < 0.01) return;
+
+    if (!isRendering) {
+      try {
+        v.currentTime = target;
+      } catch {
+        /* not seekable yet */
+      }
+      return;
+    }
+    const handle = delayRender("pingpong-seek");
+    let settled = false;
+    const done = () => {
+      if (!settled) {
+        settled = true;
+        continueRender(handle);
+      }
+    };
+    v.addEventListener("seeked", done, { once: true });
+    try {
+      v.currentTime = target;
+    } catch {
+      done();
+    }
+    const to = setTimeout(done, 1500);
+    return () => {
+      clearTimeout(to);
+      v.removeEventListener("seeked", done);
+      done();
+    };
+  }, [frame, duration, fps, playbackRate, isRendering]);
+
+  return <video ref={ref} src={src} muted playsInline style={style} />;
+};
+
 /** Render one slide (image / video / text) with its Ken Burns zoom. `dur` is the
  * item's OWN effective duration in frames (used for the zoom-out fit math). */
 const SlideItem: React.FC<{ slide: BackgroundSlide; local: number; dur: number; fps: number; accent: string }> = ({
@@ -135,12 +234,22 @@ const SlideItem: React.FC<{ slide: BackgroundSlide; local: number; dur: number; 
       {slide.kind === "text" ? (
         <TextCard slide={slide} accent={accent} />
       ) : slide.kind === "video" ? (
-        <OffthreadVideo
-          src={slide.src}
-          muted
-          playbackRate={slide.playbackRate && slide.playbackRate > 0 ? slide.playbackRate : 1}
-          style={{ objectFit: "cover", width: "100%", height: "100%" }}
-        />
+        slide.loop ? (
+          // Ping-pong loop (forward → reverse → forward…) so a short clip fills the
+          // duration seamlessly without a jump cut.
+          <PingPongVideo
+            src={slide.src}
+            playbackRate={slide.playbackRate && slide.playbackRate > 0 ? slide.playbackRate : 1}
+            style={{ objectFit: "cover", width: "100%", height: "100%" }}
+          />
+        ) : (
+          <OffthreadVideo
+            src={slide.src}
+            muted
+            playbackRate={slide.playbackRate && slide.playbackRate > 0 ? slide.playbackRate : 1}
+            style={{ objectFit: "cover", width: "100%", height: "100%" }}
+          />
+        )
       ) : (
         <Img src={slide.src} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
       )}
