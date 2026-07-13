@@ -17,8 +17,9 @@ export const CinematicPrime: React.FC<TemplateProps> = ({ project }) => {
 
   // Letterbox bars slide in from top/bottom.
   const barHeight = interpolate(frame, [0, 20], [0, 96], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  // Underline fills across the whole clip for a "progress" feel.
-  const progress = interpolate(frame, [24, durationInFrames], [0, 100], {
+  // Underline fills across the whole clip for a "progress" feel. Guard the range
+  // so it's strictly increasing even for a very short scene.
+  const progress = interpolate(frame, [24, Math.max(25, durationInFrames)], [0, 100], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

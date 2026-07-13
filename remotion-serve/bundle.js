@@ -2554,7 +2554,7 @@ const CinematicPrime = ({ project }) => {
   const frame = (0,esm.useCurrentFrame)();
   const { durationInFrames } = (0,esm.useVideoConfig)();
   const barHeight = (0,esm.interpolate)(frame, [0, 20], [0, 96], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const progress = (0,esm.interpolate)(frame, [24, durationInFrames], [0, 100], {
+  const progress = (0,esm.interpolate)(frame, [24, Math.max(25, durationInFrames)], [0, 100], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp"
   });
@@ -3574,14 +3574,12 @@ const SocialBar = ({
     ["x", social.x]
   ].filter(([, handle]) => handle && handle.trim());
   if (rows.length === 0) return null;
-  const inD = Math.min(12, Math.round(fps * 0.4));
-  const opacity = (0,esm.interpolate)(
-    frame,
-    [0, inD, durationInFrames - inD, durationInFrames],
-    [0, 1, 1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-  const rise = (1 - (0,esm.interpolate)(frame, [0, inD], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })) * 40;
+  const inD = Math.max(0, Math.min(Math.round(fps * 0.4), Math.floor((durationInFrames - 1) / 2)));
+  const opacity = inD <= 0 ? 1 : (0,esm.interpolate)(frame, [0, inD, durationInFrames - inD, durationInFrames], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp"
+  });
+  const rise = inD <= 0 ? 0 : (1 - (0,esm.interpolate)(frame, [0, inD], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })) * 40;
   return /* @__PURE__ */ react.createElement(
     "div",
     {

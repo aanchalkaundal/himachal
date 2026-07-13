@@ -73,14 +73,19 @@ export const SocialBar: React.FC<{ social: SocialConfig; accent: string; duratio
 
   if (rows.length === 0) return null;
 
-  const inD = Math.min(12, Math.round(fps * 0.4));
-  const opacity = interpolate(
-    frame,
-    [0, inD, durationInFrames - inD, durationInFrames],
-    [0, 1, 1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-  );
-  const rise = (1 - interpolate(frame, [0, inD], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })) * 40;
+  // Fade length — clamped so the 4-point input range is ALWAYS strictly
+  // increasing (0 < inD < duration−inD < duration), even for very short windows.
+  // Otherwise interpolate throws "inputRange must be strictly increasing".
+  const inD = Math.max(0, Math.min(Math.round(fps * 0.4), Math.floor((durationInFrames - 1) / 2)));
+  const opacity =
+    inD <= 0
+      ? 1
+      : interpolate(frame, [0, inD, durationInFrames - inD, durationInFrames], [0, 1, 1, 0], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        });
+  const rise =
+    inD <= 0 ? 0 : (1 - interpolate(frame, [0, inD], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })) * 40;
 
   return (
     <div
