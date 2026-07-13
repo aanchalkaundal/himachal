@@ -122,6 +122,43 @@ export interface StoryScene {
 }
 
 /**
+ * A background "group": one base slide plus the overlay slides that come right
+ * after it in the list. Overlays ride ON their group's base for that base's time
+ * window — so an overlay only composites over the item just behind it, not over
+ * every base/foreground item.
+ */
+export interface BackgroundGroup {
+  base: BackgroundSlide | null;
+  overlays: BackgroundSlide[];
+  durationSeconds: number;
+}
+
+/**
+ * Group slides for playback: each non-overlay slide starts a new group; overlay
+ * slides attach to the current group (the base just before them). A group lasts
+ * as long as its base (or the overlay itself if there is no base). This is the
+ * single source of truth used by BOTH the renderer and the duration calc.
+ */
+export function buildBackgroundGroups(slides: BackgroundSlide[]): BackgroundGroup[] {
+  const groups: BackgroundGroup[] = [];
+  let cur: BackgroundGroup | null = null;
+  for (const s of slides) {
+    const dur = Math.max(0.1, Number(s.durationSeconds) || 1);
+    if (s.layer !== "overlay") {
+      cur = { base: s, overlays: [], durationSeconds: dur };
+      groups.push(cur);
+    } else if (!cur) {
+      // Overlay before any base → its own group over the gradient.
+      cur = { base: null, overlays: [s], durationSeconds: dur };
+      groups.push(cur);
+    } else {
+      cur.overlays.push(s);
+    }
+  }
+  return groups;
+}
+
+/**
  * Uploaded media. Values are browser object/data URLs in the editor and are
  * passed straight to the renderer as inputProps (Remotion loads data URLs).
  */

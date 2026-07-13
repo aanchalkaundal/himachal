@@ -60,7 +60,10 @@ export function AudioTimelineBar({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(24); // px per second (fixed scale → horizontal scroll for long videos)
 
-  const span = Math.max(totalSeconds, 1);
+  // Timeline spans the longer of the video and the furthest clip end, so a full
+  // audio clip (longer than the video) shows completely and can be positioned/trimmed.
+  const maxClipEnd = clips.reduce((m, c) => Math.max(m, c.startSeconds + c.durationSeconds), 0);
+  const span = Math.max(totalSeconds, maxClipEnd, 1);
   const innerWidth = span * zoom;
   const pxPerSec = () => zoom;
 
@@ -120,8 +123,9 @@ export function AudioTimelineBar({
         id: createId("audio"),
         name: file.name.replace(/\.[^.]+$/, ""),
         src,
-        startSeconds: snap(clamp(playSec, 0, Math.max(0, span - Math.min(len, span)))),
-        durationSeconds: Math.min(len, span),
+        // Full audio length (not capped to the video), placed at the playhead.
+        startSeconds: snap(Math.max(0, playSec)),
+        durationSeconds: len,
         trimStartSeconds: 0,
         volume: 1,
         fadeInSeconds: 0,

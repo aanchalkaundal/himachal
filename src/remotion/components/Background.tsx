@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Img, OffthreadVideo, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { BackgroundSlide, MediaAssets } from "@/types/project";
+import { buildBackgroundGroups } from "@/types/project";
 import { useKenBurns } from "@/remotion/animations/presets";
 
 interface BackgroundProps {
@@ -92,93 +93,109 @@ const TextCard: React.FC<{ slide: BackgroundSlide; accent: string }> = ({ slide,
   }
 };
 
-/** Frames used for the cross-fade between slideshow images. */
+/** Frames used for the cross-fade between slideshow items. */
 const SLIDE_FADE_FRAMES = 14;
 
+/** Render one slide (image / video / text) with its Ken Burns zoom. `dur` is the
+ * item's OWN effective duration in frames (used for the zoom-out fit math). */
+const SlideItem: React.FC<{ slide: BackgroundSlide; local: number; dur: number; fps: number; accent: string }> = ({
+  slide,
+  local,
+  dur,
+  fps,
+  accent,
+}) => {
+  // Zoom toward the focal point at zoomSpeed %/second.
+  //  • Zoom IN  (zs > 0): starts fit (scale 1) → grows over time.
+  //  • Zoom OUT (zs < 0): starts zoomed-in → shrinks to fit exactly at the end.
+  const zs = slide.zoomSpeed || 0;
+  const rate = Math.abs(zs) / 100;
+  const localSec = local / fps;
+  let scale: number;
+  if (zs >= 0) {
+    scale = 1 + rate * localSec;
+  } else {
+    const totalOut = rate * (dur / fps);
+    scale = Math.max(1, 1 + totalOut - rate * localSec);
+  }
+
+  return (
+    <AbsoluteFill style={{ transform: `scale(${scale})`, transformOrigin: `${slide.focalX}% ${slide.focalY}%` }}>
+      {slide.kind === "text" ? (
+        <TextCard slide={slide} accent={accent} />
+      ) : slide.kind === "video" ? (
+        <OffthreadVideo
+          src={slide.src}
+          muted
+          playbackRate={slide.playbackRate && slide.playbackRate > 0 ? slide.playbackRate : 1}
+          style={{
+            objectFit: "cover",
+            width: "100%",
+            height: "100%",
+            filter: slide.chromaKey ? "url(#nvg-greenscreen)" : undefined,
+          }}
+        />
+      ) : (
+        <Img src={slide.src} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+      )}
+    </AbsoluteFill>
+  );
+};
+
 /**
- * A looping background slideshow. Each slide is shown for its own duration and
- * performs a Ken Burns zoom toward its focal point at its own speed. The whole
- * show loops to fill the video, and neighbouring slides cross-fade.
- *
- * Deterministic: the visible slide and its zoom are pure functions of the frame,
- * so the live preview and the server export are identical.
+ * Background slideshow, grouped so each overlay rides ONLY on the base item just
+ * before it (not over every item). Groups play in sequence once. Within a group:
+ * the base fills the group's window; the scrim dims it; each overlay plays on top
+ * for its OWN duration, capped to the base's window (an overlay can't outlast its
+ * base). Deterministic — preview and export match.
  */
-const SlideShow: React.FC<{ slides: BackgroundSlide[]; accent: string }> = ({ slides, accent }) => {
+const SlideShow: React.FC<{ slides: BackgroundSlide[]; accent: string; scrim: number }> = ({ slides, accent, scrim }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Per-slide durations in frames (min 1) + cumulative start frames. No looping:
-  // slides play through ONCE, in order. Each image zooms exactly once. The last
-  // image keeps holding + zooming until the video ends (it never restarts), so a
-  // single image zooms continuously for the whole video with no repeat.
-  const durations = slides.map((s) => Math.max(1, Math.round((s.durationSeconds || 1) * fps)));
+  const groups = buildBackgroundGroups(slides);
+  const durations = groups.map((g) => Math.max(1, Math.round(g.durationSeconds * fps)));
   const starts = durations.map((_, i) => durations.slice(0, i).reduce((a, b) => a + b, 0));
 
   return (
     <AbsoluteFill>
-      {slides.map((slide, i) => {
+      {groups.map((g, i) => {
         const start = starts[i];
-        const dur = durations[i];
-        const isLast = i === slides.length - 1;
-        const local = frame - start; // frames since THIS slide appeared (unbounded)
-
-        // Not on screen yet.
+        const groupDur = durations[i];
+        const isLast = i === groups.length - 1;
+        const local = frame - start;
         if (local < 0) return null;
-        // Fully finished (a later slide has taken over) — skip. The last slide is
-        // never "finished": it holds to the end.
-        if (!isLast && local > dur) return null;
+        if (!isLast && local > groupDur) return null;
 
-        // Zoom toward the focal point at zoomSpeed %/second.
-        //  • Zoom IN  (zs > 0): starts fit (scale 1) → grows over time.
-        //  • Zoom OUT (zs < 0): starts zoomed-in → shrinks to fit (scale 1) exactly
-        //    at the end of this slide (so the image fits the display by the end).
-        const zs = slide.zoomSpeed || 0;
-        const rate = Math.abs(zs) / 100; // scale change per second
-        const localSec = local / fps;
-        let scale: number;
-        if (zs >= 0) {
-          scale = 1 + rate * localSec;
-        } else {
-          const totalOut = rate * (dur / fps); // how much it zooms out over the slide
-          scale = Math.max(1, 1 + totalOut - rate * localSec); // start 1+totalOut → 1 (never below fit)
-        }
-
-        // Cross-fade: first slide starts fully visible; others fade in as the
-        // previous one fades out. Non-last slides fade out at their end.
-        const fadeIn = i === 0 ? 1 : interpolate(local, [0, SLIDE_FADE_FRAMES], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-        const fadeOut = isLast
-          ? 1
-          : interpolate(local, [dur - SLIDE_FADE_FRAMES, dur], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-        const opacity = Math.min(fadeIn, fadeOut);
-        if (opacity <= 0) return null;
+        // Cross-fade between groups (last group holds to the end).
+        const gIn = i === 0 ? 1 : interpolate(local, [0, SLIDE_FADE_FRAMES], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+        const gOut = isLast ? 1 : interpolate(local, [groupDur - SLIDE_FADE_FRAMES, groupDur], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+        const gOpacity = Math.min(gIn, gOut);
+        if (gOpacity <= 0) return null;
 
         return (
-          <AbsoluteFill key={slide.id} style={{ opacity }}>
-            <AbsoluteFill
-              style={{
-                transform: `scale(${scale})`,
-                transformOrigin: `${slide.focalX}% ${slide.focalY}%`,
-              }}
-            >
-              {slide.kind === "text" ? (
-                <TextCard slide={slide} accent={accent} />
-              ) : slide.kind === "video" ? (
-                <OffthreadVideo
-                  src={slide.src}
-                  muted
-                  playbackRate={slide.playbackRate && slide.playbackRate > 0 ? slide.playbackRate : 1}
-                  style={{
-                    objectFit: "cover",
-                    width: "100%",
-                    height: "100%",
-                    // Live green-screen removal for video via the SVG chroma-key filter.
-                    filter: slide.chromaKey ? "url(#nvg-greenscreen)" : undefined,
-                  }}
-                />
-              ) : (
-                <Img src={slide.src} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
-              )}
-            </AbsoluteFill>
+          <AbsoluteFill key={i} style={{ opacity: gOpacity }}>
+            {g.base ? <SlideItem slide={g.base} local={local} dur={groupDur} fps={fps} accent={accent} /> : null}
+
+            {/* Scrim between the base and its overlays (base dimmed for legibility;
+                overlays sit above, undimmed). */}
+            {scrim > 0 ? <AbsoluteFill style={{ background: `rgba(0,0,0,${scrim})` }} /> : null}
+
+            {/* Overlays ride on THIS group's base, for their own duration but never
+                longer than the base window. */}
+            {g.overlays.map((ov) => {
+              const ovDur = Math.min(Math.max(1, Math.round((ov.durationSeconds || 1) * fps)), groupDur);
+              if (local > ovDur) return null; // overlay can't outlast its base
+              const oIn = interpolate(local, [0, SLIDE_FADE_FRAMES], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+              const oOut = interpolate(local, [ovDur - SLIDE_FADE_FRAMES, ovDur], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+              const oOpacity = Math.min(oIn, oOut);
+              if (oOpacity <= 0) return null;
+              return (
+                <AbsoluteFill key={ov.id} style={{ opacity: oOpacity }}>
+                  <SlideItem slide={ov} local={local} dur={ovDur} fps={fps} accent={accent} />
+                </AbsoluteFill>
+              );
+            })}
           </AbsoluteFill>
         );
       })}
@@ -189,7 +206,7 @@ const SlideShow: React.FC<{ slides: BackgroundSlide[]; accent: string }> = ({ sl
 /**
  * Template-agnostic background layer. Precedence:
  *   1. background video
- *   2. background slideshow (multi-image, per-slide duration + zoom)
+ *   2. background slideshow (grouped: base items + their attached overlays)
  *   3. single background image (slow Ken Burns push)
  *   4. themed gradient
  * A scrim keeps foreground text readable regardless of the underlying media.
@@ -197,8 +214,6 @@ const SlideShow: React.FC<{ slides: BackgroundSlide[]; accent: string }> = ({ sl
 export const Background: React.FC<BackgroundProps> = ({ media, from, to, scrim = 0.35, accent = "#e11d2a" }) => {
   const ken = useKenBurns();
   const slides = media.backgroundSlides ?? [];
-  const baseSlides = slides.filter((s) => (s.layer ?? "base") === "base");
-  const overlaySlides = slides.filter((s) => s.layer === "overlay");
 
   return (
     <AbsoluteFill>
@@ -206,23 +221,24 @@ export const Background: React.FC<BackgroundProps> = ({ media, from, to, scrim =
           media composites over the gradient instead of black. */}
       <AbsoluteFill style={{ background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)` }} />
 
-      {/* Base (background) layer */}
       {media.backgroundVideo ? (
-        <OffthreadVideo src={media.backgroundVideo} muted style={{ objectFit: "cover", width: "100%", height: "100%" }} />
-      ) : baseSlides.length > 0 ? (
-        <SlideShow slides={baseSlides} accent={accent} />
+        <>
+          <OffthreadVideo src={media.backgroundVideo} muted style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+          <AbsoluteFill style={{ background: `rgba(0,0,0,${scrim})` }} />
+        </>
+      ) : slides.length > 0 ? (
+        // Slideshow handles the scrim per group (between base and its overlays).
+        <SlideShow slides={slides} accent={accent} scrim={scrim} />
       ) : media.backgroundImage ? (
-        <AbsoluteFill style={ken}>
-          <Img src={media.backgroundImage} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
-        </AbsoluteFill>
-      ) : null}
-
-      {/* Scrim darkens only the background so foreground text stays legible. */}
-      <AbsoluteFill style={{ background: `rgba(0,0,0,${scrim})` }} />
-
-      {/* Overlay layer — sits ABOVE the scrim (not dimmed), e.g. a green-screen
-          subject composited over the background. */}
-      {overlaySlides.length > 0 ? <SlideShow slides={overlaySlides} accent={accent} /> : null}
+        <>
+          <AbsoluteFill style={ken}>
+            <Img src={media.backgroundImage} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+          </AbsoluteFill>
+          <AbsoluteFill style={{ background: `rgba(0,0,0,${scrim})` }} />
+        </>
+      ) : (
+        <AbsoluteFill style={{ background: `rgba(0,0,0,${scrim})` }} />
+      )}
     </AbsoluteFill>
   );
 };

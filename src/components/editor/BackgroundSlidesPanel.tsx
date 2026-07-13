@@ -93,8 +93,9 @@ export function BackgroundSlidesPanel() {
             Background Slideshow · this scene
           </span>
           <p className="mt-0.5 text-[11px] text-slate-500">
-            Images &amp; videos for the selected scene — each with its own duration &amp; zoom. Tick
-            &ldquo;on top (overlay)&rdquo; to layer media over the background (great with green-screen removed).
+            Items play in order. Tick &ldquo;on top (overlay)&rdquo; to layer an item over the item
+            <span className="font-semibold"> just before it</span> (e.g. a green-screen subject over that
+            background) — for its own duration, capped to that background&apos;s time.
             {slides.length > 0 ? ` · ${slides.length} item${slides.length > 1 ? "s" : ""} · ${totalSeconds.toFixed(1)}s total` : ""}
           </p>
         </div>

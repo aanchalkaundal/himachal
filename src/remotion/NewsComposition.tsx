@@ -86,8 +86,10 @@ export const NewsComposition: React.FC<{ project: NewsProject }> = ({ project })
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
-      {/* Chroma-key filter for green-screen VIDEO slides (alpha = R − G + B, then
-          thresholded). Referenced via `filter: url(#nvg-greenscreen)`. */}
+      {/* Chroma-key filter for green-screen VIDEO slides. Alpha carries a
+          "greenness" score = G − (R+B)/2, which is high ONLY for true green and
+          low for skin / gray / yellow / cyan — so it removes green without eating
+          other colors. A threshold sharpens it. Ref: filter: url(#nvg-greenscreen). */}
       <svg width={0} height={0} style={{ position: "absolute" }} aria-hidden>
         <defs>
           <filter id="nvg-greenscreen" colorInterpolationFilters="sRGB">
@@ -96,11 +98,12 @@ export const NewsComposition: React.FC<{ project: NewsProject }> = ({ project })
               values="1 0 0 0 0
                       0 1 0 0 0
                       0 0 1 0 0
-                      1 -1 1 0 0"
-              result="keyed"
+                      -0.5 1 -0.5 0 0"
+              result="green"
             />
-            <feComponentTransfer in="keyed">
-              <feFuncA type="discrete" tableValues="0 0 0 0 1 1 1 1" />
+            {/* Keep low-greenness pixels (alpha 1), remove high-greenness (alpha 0). */}
+            <feComponentTransfer in="green">
+              <feFuncA type="discrete" tableValues="1 1 1 1 1 1 0 0 0 0" />
             </feComponentTransfer>
           </filter>
         </defs>

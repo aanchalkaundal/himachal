@@ -18,7 +18,7 @@ import type {
   SocialConfig,
   AudioClip,
 } from "@/types/project";
-import { PROJECT_VERSION } from "@/types/project";
+import { PROJECT_VERSION, buildBackgroundGroups } from "@/types/project";
 import type { AnchorInstance } from "@/anchors/types";
 import { createDefaultProject, createStoryScene, createBlankContent } from "@/lib/defaults";
 
@@ -104,11 +104,10 @@ function sceneDurationFromSlides(slides: BackgroundSlide[] | undefined, fallback
   const safeFallback = Number.isFinite(fallback) && fallback > 0 ? fallback : 6;
   const list = slides ?? [];
   if (list.length === 0) return safeFallback;
-  const totalFor = (layer: "base" | "overlay") =>
-    list
-      .filter((s) => (s.layer ?? "base") === layer)
-      .reduce((sum, s) => sum + (Number(s.durationSeconds) || 0), 0);
-  return Math.max(0.5, totalFor("base"), totalFor("overlay"));
+  // Overlays ride on their base (don't add their own time), so the scene lasts as
+  // long as the sum of the group durations — same grouping the renderer uses.
+  const total = buildBackgroundGroups(list).reduce((sum, g) => sum + g.durationSeconds, 0);
+  return Math.max(0.5, total);
 }
 
 /**
