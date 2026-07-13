@@ -96,8 +96,10 @@ function JobRow({
         <span>{job.status === "completed" ? 100 : pct}%</span>
         <span>Elapsed {formatDuration(job.elapsedMs)}</span>
         {isActive && job.etaMs != null ? <span>ETA {formatDuration(job.etaMs)}</span> : null}
-        {job.status === "failed" && job.error ? <span className="text-red-400">{job.error}</span> : null}
       </div>
+      {job.status === "failed" && job.error ? (
+        <div className="mt-1 w-full break-all text-xs text-red-400">{job.error}</div>
+      ) : null}
 
       {/* Actions */}
       <div className="mt-3 flex justify-end gap-2">

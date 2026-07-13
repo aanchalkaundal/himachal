@@ -44,7 +44,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-8">
+    <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col overflow-x-hidden px-6 py-8">
       <header className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black tracking-tight">
@@ -76,7 +76,7 @@ export function Dashboard() {
           ))}
         </nav>
 
-        <section>
+        <section className="min-w-0">
           {tab === "create" && <CreatePanel onCreate={handleCreate} />}
           {tab === "saved" && (
             <SavedPanel projects={mounted ? saved : []} onOpen={handleOpen} onDelete={deleteProject} />
